@@ -3,7 +3,6 @@ import traitlets as tl
 from IPython.display import Javascript, display
 
 from aiida.orm import load_node
-from aiida.orm.utils.serialize import deserialize_unsafe
 from aiidalab_qe.app.configuration import ConfigureQeAppWorkChainStep
 from aiidalab_qe.app.configuration.model import ConfigurationStepModel
 from aiidalab_qe.app.result import ViewQeAppWorkChainStatusAndResultsStep
@@ -20,17 +19,14 @@ from aiidalab_widgets_base import LoadingWidget, WizardAppWidget
 class WizardApp(ipw.VBox):
     """The main widget that combines all the application steps together."""
 
-    # The PK or UUID of the work chain node.
-    process = tl.Union([tl.Unicode(), tl.Int()], allow_none=True)
+    preloaded_state = tl.Dict(None, allow_none=True)
 
-    def __init__(self, auto_setup=True, **kwargs):
+    def __init__(self, auto_setup=True, log_widget=None, **kwargs):
         # Initialize the models
         self.structure_model = StructureStepModel()
         self.configure_model = ConfigurationStepModel()
         self.submit_model = SubmissionStepModel()
         self.results_model = ResultsStepModel()
-
-        log_widget = kwargs.pop("log_widget", None)
 
         # Create the application steps
         self.structure_step = StructureSelectionStep(
@@ -118,9 +114,9 @@ class WizardApp(ipw.VBox):
     def steps(self):
         return self._wizard_app_widget.steps
 
-    @tl.observe("process")
-    def _on_process_change(self, change):
-        self._update_from_process(change["new"])
+    @tl.observe("preloaded_state")
+    def _on_preloaded_state_change(self, change):
+        self._preload_from_state(change["new"] or {})
 
     def _on_new_workchain_button_click(self, _):
         display(Javascript("window.open('./qe.ipynb', '_blank')"))
@@ -172,25 +168,36 @@ class WizardApp(ipw.VBox):
         ):
             model.unobserve_all("confirmed")
 
-    def _update_from_process(self, pk):
-        if pk is None:
-            self._wizard_app_widget.reset()
-            self._wizard_app_widget.selected_index = 0
-        else:
+    def _preload_from_state(self, state: dict):
+        step = None
+
+        if structure_state := state.get("structure_state"):
             self._show_process_loading_message()
-            process_node = load_node(pk)
-            self.structure_model.input_structure = process_node.inputs.structure
-            self.structure_model.confirm()
-            parameters = process_node.base.extras.get("ui_parameters", {})
-            if parameters and isinstance(parameters, str):
-                parameters = deserialize_unsafe(parameters)
-            self.configure_model.set_model_state(parameters)
-            self.configure_model.confirm()
-            self.submit_model.process_node = process_node
-            self.submit_model.set_model_state(parameters)
-            self.submit_model.confirm()
-            self._wizard_app_widget.selected_index = 3
+            self.structure_model.set_model_state(structure_state)
+            step = 0
+
+            if configuration_state := state.get("configuration_state"):
+                self.structure_model.confirm()
+                self.configure_model.set_model_state(configuration_state)
+                step = 1
+
+                if resources_state := state.get("resources_state", {}):
+                    self.configure_model.confirm()
+                    self.submit_model.set_model_state(resources_state)
+                    step = 2
+
+                    if process_identifier := state.get("process_identifier"):
+                        process_node = load_node(process_identifier)
+                        self.submit_model.process_node = process_node
+                        self.submit_model.confirm()
+                        self.structure_model.lock()
+                        self.configure_model.lock()
+                        self.submit_model.lock()
+                        step = 3
+
             self._hide_process_loading_message()
+
+        self._wizard_app_widget.selected_index = step
 
     def _show_process_loading_message(self):
         self._process_loading_message.layout.display = "flex"

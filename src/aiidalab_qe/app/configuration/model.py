@@ -90,6 +90,8 @@ class ConfigurationStepModel(
         self.relax_type = self._get_default_relax_type()
 
     def get_model_state(self) -> dict:
+        if not self.has_structure:
+            return {}
         state = {
             identifier: model.get_model_state()
             for identifier, model in self.get_models()
@@ -110,7 +112,6 @@ class ConfigurationStepModel(
                 model.include = identifier in self._default_models | properties
                 if state.get(identifier):
                     model.set_model_state(state[identifier])
-                    model.locked = True
 
     def reset(self):
         self.confirmed = False

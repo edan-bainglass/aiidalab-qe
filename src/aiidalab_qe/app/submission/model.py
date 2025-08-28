@@ -38,25 +38,24 @@ class SubmissionStepModel(
     plugin_overrides = tl.List(tl.Unicode())
 
     def __init__(self, *args, **kwargs):
+        self._default_models = {
+            "global",
+        }
+
         super().__init__(*args, **kwargs)
+
         self.confirmation_exceptions += [
             "warning_messages",
             "installing_qe",
             "qe_installed",
         ]
 
-        self._default_models = {
-            "global",
-        }
-
-        self._ALERT_MESSAGE = """
-            <div class="alert alert-{alert_class} alert-dismissible">
-                <a href="#" class="close" data-dismiss="alert" aria-label="close">
-                    &times;
-                </a>
-                <strong>{message}</strong>
-            </div>
-        """
+    @tl.observe("process_node")
+    def _on_process_node_change(self, _):
+        if self.process_node:
+            self.process_label = self.process_node.label
+            self.process_description = self.process_node.description
+            self.locked = True
 
     def confirm(self):
         super().confirm()
@@ -136,37 +135,21 @@ class SubmissionStepModel(
         self.warning_messages = warning_messages
 
     def get_model_state(self) -> dict:
-        parameters: dict = shallow_copy_nested_dict(self.input_parameters)  # type: ignore
-        parameters["codes"] = {
-            identifier: model.get_model_state()
-            for identifier, model in self.get_models()
-            if model.include
-        }
-        return parameters
+        return (
+            {
+                identifier: model.get_model_state()
+                for identifier, model in self.get_models()
+                if model.include
+            }
+            if self.has_structure
+            else {}
+        )
 
     def set_model_state(self, state: dict):
-        codes: dict = state.get("codes", {})
-
-        if "resources" in state:
-            resources = state["resources"]
-            codes |= {key: {"code": value} for key, value in codes.items()}
-            codes["pw"]["nodes"] = resources["num_machines"]
-            codes["pw"]["cpus"] = resources["num_mpiprocs_per_machine"]
-            codes["pw"]["parallelization"] = {"npool": resources["npools"]}
-
-        workchain_parameters: dict = state.get("workchain", {})
-        properties = set(workchain_parameters.get("properties", []))
-        included = self._default_models | properties
         for identifier, model in self.get_models():
-            model.include = identifier in included
-            if codes.get(identifier):
-                model.set_model_state(codes[identifier])
-                model.locked = True
-
-        if self.process_node:
-            self.process_label = self.process_node.label
-            self.process_description = self.process_node.description
-            self.locked = True
+            if state.get(identifier):
+                model.include = True
+                model.set_model_state(state[identifier])
 
     def reset(self):
         with self.hold_trait_notifications():
@@ -178,7 +161,8 @@ class SubmissionStepModel(
                     model.include = False
 
     def _submit(self):
-        parameters = self.get_model_state()
+        parameters = shallow_copy_nested_dict(self.input_parameters)
+        parameters |= {"codes": self.get_model_state()}
         builder = self._create_builder(parameters)
 
         with self.hold_trait_notifications():

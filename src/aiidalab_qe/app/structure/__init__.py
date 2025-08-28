@@ -125,7 +125,7 @@ class StructureSelectionStep(QeConfirmableWizardStep[StructureStepModel]):
             ],
         )
 
-        if self._model.confirmed:  # loaded from a process
+        if self._model.has_structure:  # preloaded
             # NOTE important to do this prior to setting up the links
             # to avoid an override of the structure in the model,
             # which in turn would trigger a reset of the model

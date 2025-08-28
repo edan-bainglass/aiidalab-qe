@@ -1,12 +1,28 @@
 from __future__ import annotations
 
+import json
+import typing as t
+from datetime import datetime
+from pathlib import Path
+
 import ipywidgets as ipw
 import traitlets as tl
-from IPython.display import display
+from importlib_resources import files
+from IPython.display import Image, display
+from jinja2 import Environment
 
+from aiida import orm
+from aiida.orm.utils.serialize import deserialize_unsafe
+from aiidalab_qe.app.static import images as images_folder
+from aiidalab_qe.app.static import templates
+from aiidalab_qe.app.wizard_app import WizardApp
 from aiidalab_qe.common.guide_manager import guide_manager
+from aiidalab_qe.common.infobox import InfoBox
 from aiidalab_qe.common.widgets import LinkButton
+from aiidalab_qe.version import __version__
 from aiidalab_widgets_base import LoadingWidget
+
+CURRENT_STATE_PATH = Path("/tmp/current_state.json")
 
 
 def without_triggering(toggle: str):
@@ -54,6 +70,20 @@ class AppWrapperContoller:
         for toggle in self._view.toggles.children:
             toggle.disabled = False
 
+    def load_app(self, auto_setup=True, log_widget=None) -> None:
+        """Initialize the WizardApp and integrate the app into the main view."""
+        app = WizardApp(auto_setup, log_widget)
+        self._view.main.children = [app]
+        state = {"process_identifier": self._model.process_identifier}
+        if self._model.process_identifier:
+            state |= self._model.get_state_from_process()
+        if CURRENT_STATE_PATH.exists():
+            # TODO how to best guarantee the state was already written by this point?
+            state |= json.loads(CURRENT_STATE_PATH.read_text())
+            CURRENT_STATE_PATH.unlink(missing_ok=True)
+        app.preloaded_state = state
+        self._model.loaded = True
+
     @without_triggering("about_toggle")
     def _on_guide_toggle(self, change: dict):
         """Toggle the guide section."""
@@ -91,6 +121,17 @@ class AppWrapperContoller:
         guide = self._view.guide_selection.value
         self._model.update_active_guide(category, guide)
 
+    def _on_duplicate_workflow_click(self, _):
+        if not self._model.loaded:
+            return
+        app: WizardApp = self._view.main.children[0]
+        payload = {
+            "structure_state": app.structure_model.get_model_state(),
+            "configuration_state": app.configure_model.get_model_state(),
+            "resources_state": app.submit_model.get_model_state(),
+        }
+        CURRENT_STATE_PATH.write_text(json.dumps(payload))
+
     def _set_event_handlers(self) -> None:
         """Set up event handlers."""
         self._model.observe(
@@ -113,6 +154,8 @@ class AppWrapperContoller:
             self._on_about_toggle,
             "value",
         )
+
+        self._view.duplicate_workflow_link.on_click(self._on_duplicate_workflow_click)
 
         ipw.dlink(
             (self._model, "guide_category_options"),
@@ -142,10 +185,42 @@ class AppWrapperModel(tl.HasTraits):
     guide_options = tl.List(tl.Unicode())
     selected_guide = tl.Unicode(None, allow_none=True)
 
+    process_identifier: int | str | None = None
+    loaded = False
+
+    def __init__(self, process_identifier: str | None = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.process_identifier = process_identifier
+
     def update_active_guide(self, category, guide):
         """Sets the current active guide."""
         active_guide = f"{category}/{guide}" if category != "No guides" else category
         guide_manager.active_guide = active_guide
+
+    def get_state_from_process(self) -> dict:
+        if not self.process_identifier:
+            return {}
+        process = t.cast(orm.WorkChainNode, orm.load_node(self.process_identifier))
+        parameters = process.base.extras.get("ui_parameters", {})
+        if parameters and isinstance(parameters, str):
+            parameters = deserialize_unsafe(parameters)
+        codes = parameters.pop("codes", {})
+
+        # BACKWARDS COMPATIBILITY
+        # We used to store the codes under "resources"
+        if "resources" in parameters:
+            resources = parameters["resources"]
+            codes |= {key: {"code": value} for key, value in codes.items()}
+            codes["pw"]["nodes"] = resources["num_machines"]
+            codes["pw"]["cpus"] = resources["num_mpiprocs_per_machine"]
+            codes["pw"]["parallelization"] = {"npool": resources["npools"]}
+        # END BACKWARDS COMPATIBILITY
+
+        return {
+            "structure_state": {"uuid": process.inputs.structure.uuid},
+            "configuration_state": parameters,
+            "resources_state": codes,
+        }
 
 
 class AppWrapperView(ipw.VBox):
@@ -153,21 +228,6 @@ class AppWrapperView(ipw.VBox):
 
     def __init__(self) -> None:
         """`AppWrapperView` constructor."""
-
-        ################# LAZY LOADING #################
-
-        from datetime import datetime
-
-        from importlib_resources import files
-        from IPython.display import Image
-        from jinja2 import Environment
-
-        from aiidalab_qe.app.static import images as images_folder
-        from aiidalab_qe.app.static import templates
-        from aiidalab_qe.common.infobox import InfoBox
-        from aiidalab_qe.version import __version__
-
-        #################################################
 
         self.output = ipw.Output()
 
@@ -198,7 +258,7 @@ class AppWrapperView(ipw.VBox):
             style_="background-color: var(--color-aiida-blue)",
         )
 
-        self.new_workchain_link = LinkButton(
+        self.new_workflow_link = LinkButton(
             description="New calculation",
             link="./qe.ipynb",
             icon="plus-circle",
@@ -206,11 +266,20 @@ class AppWrapperView(ipw.VBox):
             style_="background-color: var(--color-aiida-green)",
         )
 
+        self.duplicate_workflow_link = LinkButton(
+            description="Duplicate",
+            link="./qe.ipynb",
+            icon="clone",
+            tooltip="Duplicate calculation paramters in a separate tab",
+            style_="background-color: var(--color-aiida-green)",
+        )
+
         self.external_links = ipw.HBox(
             children=[
                 self.calculation_history_link,
                 self.setup_resources_link,
-                self.new_workchain_link,
+                self.new_workflow_link,
+                self.duplicate_workflow_link,
             ],
         )
 

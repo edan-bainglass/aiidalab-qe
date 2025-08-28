@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import traitlets as tl
 
+from aiida import orm
 from aiidalab_qe.common.mixins import HasInputStructure
 from aiidalab_qe.common.wizard import QeConfirmableWizardStepModel
 
@@ -22,6 +25,13 @@ class StructureStepModel(
             "installing_sssp",
             "sssp_installed",
         ]
+
+    def get_model_state(self) -> dict:
+        return {"uuid": self.input_structure.uuid} if self.has_structure else {}
+
+    def set_model_state(self, state: dict):
+        if uuid := state.get("uuid"):
+            self.input_structure = orm.load_node(uuid)
 
     def update_widget_text(self):
         if not self.has_structure:

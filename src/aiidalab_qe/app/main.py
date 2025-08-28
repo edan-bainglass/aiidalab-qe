@@ -9,7 +9,6 @@ import ipywidgets as ipw
 from IPython.display import display
 
 from aiidalab_qe.app.static import styles
-from aiidalab_qe.app.wizard_app import WizardApp
 from aiidalab_qe.app.wrapper import AppWrapperContoller, AppWrapperModel, AppWrapperView
 from aiidalab_widgets_base.bug_report import (
     install_create_github_issue_exception_handler,
@@ -29,14 +28,13 @@ class QeApp:
     ):
         """Initialize the AiiDAlab QE application with the necessary setup."""
 
-        self.process = process
         self.auto_setup = auto_setup
         self.log_widget = None
 
         self._load_styles()
 
         # Initialize MVC components
-        self.model = AppWrapperModel()
+        self.model = AppWrapperModel(process_identifier=process)
         self.view = AppWrapperView()
         display(self.view)
 
@@ -81,12 +79,5 @@ class QeApp:
         load_css(css_path=Path(styles.__file__).parent)
 
     def load(self):
-        """Initialize the WizardApp and integrate the app into the main view."""
-        self.app = WizardApp(
-            auto_setup=self.auto_setup,
-            log_widget=self.log_widget,
-        )
-        self.view.main.children = [self.app]
-        # load a previous calculation if it is provided
-        if self.process:
-            self.app.process = self.process
+        """Load the main application."""
+        self.controller.load_app(self.auto_setup, self.log_widget)

@@ -219,4 +219,4 @@ class QeConfirmableDependentWizardStep(
     QeDependentWizardStep[CWSM],
     QeConfirmableWizardStep[CWSM],
 ):
-    pass
+    """A confirmable dependent wizard step."""

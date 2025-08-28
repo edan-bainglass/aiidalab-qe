@@ -48,6 +48,9 @@ class Model(tl.HasTraits, metaclass=MetaHasTraitsLast):
         if state:
             self.set_model_state(state)
 
+    def lock(self):
+        self.locked = True
+
     def update(self, specific=""):
         """Updates the model.
 
