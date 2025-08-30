@@ -1,11 +1,3 @@
-import sys
-import typing as t
-
-if sys.version_info >= (3, 11):
-    Self = t.Self
-else:
-    from typing_extensions import Self
-
 from pathlib import Path
 
 import traitlets as tl
@@ -26,16 +18,12 @@ class LinkButton(AnyWidget):
     disabled = tl.Bool(False).tag(sync=True)
     prevent_default = tl.Bool(False).tag(sync=True)
     clicks = tl.Int(0).tag(sync=True)
-    last_click = tl.Dict({}).tag(sync=True)
-
-    def __new__(cls, *args: t.Any, **kwargs: t.Any) -> Self:
-        return super().__new__(cls, *args, **kwargs)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def on_click(self, callback, remove=False):
         if remove:
-            self.unobserve(callback, names="clicks")
+            self.unobserve(callback, "clicks")
         else:
-            self.observe(callback, names="clicks")
+            self.observe(callback, "clicks")
