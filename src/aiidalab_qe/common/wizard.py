@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 import os
 import typing as t
 
@@ -8,22 +9,56 @@ import traitlets as tl
 
 from aiidalab_qe.common.mixins import Confirmable, HasBlockers, HasModels
 from aiidalab_qe.common.mvc import Model
-from aiidalab_widgets_base import LoadingWidget, WizardAppWidgetStep
+from aiidalab_widgets_base import LoadingWidget
+
+
+class State(enum.Enum):
+    """Local copy of AWB's `WizardAppWidgetStep.State`"""
+
+    FAIL = -1
+    INIT = 0
+    CONFIGURED = 1
+    READY = 2
+    ACTIVE = 3
+    SUCCESS = 4
 
 
 class QeWizardStepModel(Model):
-    identifier = "QE wizard"
+    identifier = "qe-wizard-step"
+
+    state = tl.UseEnum(State, default_value=State.INIT)
+
+    def __init__(self, auto_advance: bool = True, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.auto_advance = auto_advance
+
+    @property
+    def is_finished(self) -> bool:
+        return self.state in (State.SUCCESS, State.FAIL)
+
+    def update_state(self):
+        pass
+        # print(self.__class__.__name__, "updating")
 
 
 WSM = t.TypeVar("WSM", bound=QeWizardStepModel)
 
 
-class QeWizardStep(ipw.VBox, WizardAppWidgetStep, t.Generic[WSM]):
+class QeWizardStep(ipw.VBox, t.Generic[WSM]):
     def __init__(self, model: WSM, **kwargs):
         self.loading_message = LoadingWidget(f"Loading {model.identifier} step")
+
         super().__init__(children=[self.loading_message], **kwargs)
+
         self._model = model
+
+        self._model.observe(
+            self._on_state_change,
+            "state",
+        )
+
         self.rendered = False
+
         self._background_class = ""
 
     def render(self):
@@ -33,7 +68,6 @@ class QeWizardStep(ipw.VBox, WizardAppWidgetStep, t.Generic[WSM]):
         self.rendered = True
         self._post_render()
 
-    @tl.observe("state")
     def _on_state_change(self, change):
         self._update_background_color(change["new"])
 
@@ -43,13 +77,10 @@ class QeWizardStep(ipw.VBox, WizardAppWidgetStep, t.Generic[WSM]):
     def _post_render(self):
         pass
 
-    def _update_background_color(self, state: WizardAppWidgetStep.State):
+    def _update_background_color(self, state: State):
         self.remove_class(self._background_class)
         self._background_class = f"qe-app-step-{state.name.lower()}"
         self.add_class(self._background_class)
-
-    def _update_state(self):
-        pass
 
 
 class QeConfirmableWizardStepModel(
@@ -63,6 +94,8 @@ class QeConfirmableWizardStepModel(
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.confirmation_exceptions += [
+            "state",
+            "locked",
             "blockers",
             "blocker_messages",
         ]
@@ -70,6 +103,10 @@ class QeConfirmableWizardStepModel(
     @property
     def is_blocked(self):
         return any(self.blockers)
+
+    def lock(self):
+        super().lock()
+        self.unobserve_all("confirmed")
 
     def update_blockers(self):
         blockers = list(self._check_blockers())
@@ -125,6 +162,9 @@ class QeConfirmableWizardStep(QeWizardStep[CWSM]):
         self.confirm_button_description = confirm_kwargs.get("description", "Confirm")
         self.confirm_button_tooltip = confirm_kwargs.get("tooltip", "Confirm")
 
+    def confirm(self, _=None):
+        self._model.confirm()
+
     def _render(self):
         self.content = ipw.VBox()
 
@@ -137,9 +177,9 @@ class QeConfirmableWizardStep(QeWizardStep[CWSM]):
             disabled=not self._model.is_blocked,
         )
         ipw.dlink(
-            (self, "state"),
+            (self._model, "state"),
             (self.confirm_button, "disabled"),
-            lambda state: self._model.is_blocked or state != self.State.CONFIGURED,
+            lambda state: self._model.is_blocked or state != State.CONFIGURED,
         )
         self.confirm_button.on_click(self.confirm)
 
@@ -159,28 +199,36 @@ class QeConfirmableWizardStep(QeWizardStep[CWSM]):
         self.children += (self.confirm_box,)
 
     def _on_confirmation_change(self, _):
-        self._update_state()
+        self._model.update_state()
 
     def _on_blockers_change(self, _):
         if self.rendered:
             self._enable_confirm_button()
         self._model.update_blocker_messages()
-        self._update_state()
-
-    def confirm(self, _=None):
-        self._model.confirm()
+        self._model.update_state()
 
     def _enable_confirm_button(self):
-        can_confirm = self._model.is_blocked or self.state != self.State.CONFIGURED
+        can_confirm = self._model.is_blocked or self._model.state != State.CONFIGURED
         self.confirm_button.disabled = can_confirm
 
 
-class QeDependentWizardStep(QeWizardStep[WSM]):
+class QeDependentWizardStepModel(
+    QeWizardStepModel,
+):
+    previous_step_state = tl.UseEnum(State)
+
+    @property
+    def is_ready(self) -> bool:
+        return self.previous_step_state is State.SUCCESS
+
+
+DWSM = t.TypeVar("DWSM", bound=QeDependentWizardStepModel)
+
+
+class QeDependentWizardStep(QeWizardStep[DWSM]):
     missing_information_warning = "Missing information"
 
-    previous_step_state = tl.UseEnum(WizardAppWidgetStep.State)
-
-    def __init__(self, model: WSM, **kwargs):
+    def __init__(self, model: DWSM, **kwargs):
         super().__init__(model, **kwargs)
         self.previous_children = list(self.children)
         self.warning_message = ipw.HTML(
@@ -190,12 +238,16 @@ class QeDependentWizardStep(QeWizardStep[WSM]):
             </div>
         """
         )
+        self._model.observe(
+            self._on_previous_step_state_change,
+            "previous_step_state",
+        )
 
     def render(self):
         if "PYTEST_CURRENT_TEST" in os.environ:
             super().render()
             return
-        if self.previous_step_state is WizardAppWidgetStep.State.SUCCESS:
+        if self._model.is_ready:
             self._hide_missing_information_warning()
             if not self.rendered:
                 super().render()
@@ -203,9 +255,8 @@ class QeDependentWizardStep(QeWizardStep[WSM]):
         else:
             self._show_missing_information_warning()
 
-    @tl.observe("previous_step_state")
     def _on_previous_step_state_change(self, _):
-        self._update_state()
+        self._model.update_state()
 
     def _show_missing_information_warning(self):
         self.children = [self.warning_message]
@@ -215,8 +266,18 @@ class QeDependentWizardStep(QeWizardStep[WSM]):
         self.children = self.previous_children
 
 
+class QeConfirmableDependentWizardStepModel(
+    QeDependentWizardStepModel,
+    QeConfirmableWizardStepModel,
+):
+    previous_step_state = tl.UseEnum(State)
+
+
+CDWSM = t.TypeVar("CDWSM", bound=QeConfirmableDependentWizardStepModel)
+
+
 class QeConfirmableDependentWizardStep(
-    QeDependentWizardStep[CWSM],
-    QeConfirmableWizardStep[CWSM],
+    QeDependentWizardStep[CDWSM],
+    QeConfirmableWizardStep[CDWSM],
 ):
     """A confirmable dependent wizard step."""

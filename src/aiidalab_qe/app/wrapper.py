@@ -15,7 +15,7 @@ from aiida import orm
 from aiida.orm.utils.serialize import deserialize_unsafe
 from aiidalab_qe.app.static import images as images_folder
 from aiidalab_qe.app.static import templates
-from aiidalab_qe.app.wizard_app import WizardApp
+from aiidalab_qe.app.wizard import Wizard, WizardModel
 from aiidalab_qe.common.guide_manager import guide_manager
 from aiidalab_qe.common.infobox import InfoBox
 from aiidalab_qe.common.widgets import LinkButton
@@ -72,8 +72,9 @@ class AppWrapperContoller:
 
     def load_app(self, auto_setup=True, log_widget=None) -> None:
         """Initialize the WizardApp and integrate the app into the main view."""
-        app = WizardApp(auto_setup, log_widget)
-        self._view.main.children = [app]
+        model = WizardModel()
+        self.app = Wizard(model, auto_setup, log_widget)
+        self._view.main.children = [self.app]
         state = {"process_identifier": self._model.process_identifier}
         if self._model.process_identifier:
             state |= self._model.get_state_from_process()
@@ -81,7 +82,7 @@ class AppWrapperContoller:
             # TODO how to best guarantee the state was already written by this point?
             state |= json.loads(CURRENT_STATE_PATH.read_text())
             CURRENT_STATE_PATH.unlink(missing_ok=True)
-        app.preloaded_state = state
+        model.preloaded_state = state
         self._model.loaded = True
 
     @without_triggering("about_toggle")
@@ -124,11 +125,10 @@ class AppWrapperContoller:
     def _on_duplicate_workflow_click(self, _):
         if not self._model.loaded:
             return
-        app: WizardApp = self._view.main.children[0]
         payload = {
-            "structure_state": app.structure_model.get_model_state(),
-            "configuration_state": app.configure_model.get_model_state(),
-            "resources_state": app.submit_model.get_model_state(),
+            "structure_state": self.app.structure_model.get_model_state(),
+            "configuration_state": self.app.configure_model.get_model_state(),
+            "resources_state": self.app.submit_model.get_model_state(),
         }
         CURRENT_STATE_PATH.write_text(json.dumps(payload))
 
@@ -201,7 +201,7 @@ class AppWrapperModel(tl.HasTraits):
         if not self.process_identifier:
             return {}
         process = t.cast(orm.WorkChainNode, orm.load_node(self.process_identifier))
-        parameters = process.base.extras.get("ui_parameters", {})
+        parameters: dict = process.base.extras.get("ui_parameters", {})
         if parameters and isinstance(parameters, str):
             parameters = deserialize_unsafe(parameters)
         codes = parameters.pop("codes", {})

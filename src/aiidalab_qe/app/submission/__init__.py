@@ -26,7 +26,7 @@ from .model import SubmissionStepModel
 DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
 
-class SubmitQeAppWorkChainStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
+class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
     missing_information_warning = "Missing input structure and/or configuration parameters. Please set them first."
 
     def __init__(self, model: SubmissionStepModel, auto_setup=True, **kwargs):
@@ -71,6 +71,10 @@ class SubmitQeAppWorkChainStep(QeConfirmableDependentWizardStep[SubmissionStepMo
         self._model.observe(
             self._on_input_parameters_change,
             "input_parameters",
+        )
+        self._model.observe(
+            self._on_process_node_change,
+            "process_node",
         )
 
         self.settings = {
@@ -209,6 +213,11 @@ class SubmitQeAppWorkChainStep(QeConfirmableDependentWizardStep[SubmissionStepMo
         if self._model.qe_installed:
             self._model.update()
 
+    def _on_process_node_change(self, _):
+        if self._model.process_node:
+            self._model.process_label = self._model.process_node.label
+            self._model.process_description = self._model.process_node.description
+
     def _set_up_qe(self, auto_setup):
         self.qe_setup = QESetupWidget(auto_start=False)
         ipw.dlink(
@@ -249,18 +258,6 @@ class SubmitQeAppWorkChainStep(QeConfirmableDependentWizardStep[SubmissionStepMo
             for i, title in enumerate(titles):
                 self.tabs.set_title(i, title)
             self.tabs.selected_index = 0
-
-    def _update_state(self, _=None):
-        if self.previous_step_state is self.State.FAIL:
-            self.state = self.State.FAIL
-        elif self.previous_step_state is not self.State.SUCCESS:
-            self.state = self.State.INIT
-        elif self._model.confirmed:
-            self.state = self.State.SUCCESS
-        elif self._model.is_blocked:
-            self.state = self.State.READY
-        else:
-            self.state = self.state.CONFIGURED
 
     def _fetch_plugin_resource_settings(self):
         entries = get_entry_items("aiidalab_qe.properties", "resources")

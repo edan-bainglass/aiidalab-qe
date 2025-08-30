@@ -29,9 +29,7 @@ from .model import ConfigurationStepModel
 DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
 
-class ConfigureQeAppWorkChainStep(
-    QeConfirmableDependentWizardStep[ConfigurationStepModel]
-):
+class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]):
     missing_information_warning = "Missing input structure. Please set it first."
 
     def __init__(self, model: ConfigurationStepModel, **kwargs):
@@ -201,16 +199,6 @@ class ConfigureQeAppWorkChainStep(
             for i, title in enumerate(titles):
                 self.tabs.set_title(i, title)
             self.tabs.selected_index = 0
-
-    def _update_state(self, _=None):
-        if self._model.confirmed:
-            self.state = self.State.SUCCESS
-        elif self.previous_step_state is self.State.SUCCESS:
-            self.state = self.State.CONFIGURED
-        elif self.previous_step_state is self.State.FAIL:
-            self.state = self.State.FAIL
-        else:
-            self.state = self.State.INIT
 
     def _fetch_not_installed_property(self, plugin_config_source=None):
         self.not_installed_property_children = []

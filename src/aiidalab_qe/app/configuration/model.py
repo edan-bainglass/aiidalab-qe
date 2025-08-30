@@ -9,7 +9,7 @@ from aiidalab_qe.common.mixins import (
     HasModels,
 )
 from aiidalab_qe.common.panel import PanelModel
-from aiidalab_qe.common.wizard import QeConfirmableWizardStepModel
+from aiidalab_qe.common.wizard import QeConfirmableDependentWizardStepModel, State
 
 DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
@@ -17,7 +17,7 @@ NO_RELAXATION_OPTION = ("Structure as is", "none")
 
 
 class ConfigurationStepModel(
-    QeConfirmableWizardStepModel,
+    QeConfirmableDependentWizardStepModel,
     HasModels[PanelModel],
     HasInputStructure,
 ):
@@ -90,7 +90,7 @@ class ConfigurationStepModel(
         self.relax_type = self._get_default_relax_type()
 
     def get_model_state(self) -> dict:
-        if not self.has_structure:
+        if not self.is_ready:
             return {}
         state = {
             identifier: model.get_model_state()
@@ -112,6 +112,17 @@ class ConfigurationStepModel(
                 model.include = identifier in self._default_models | properties
                 if state.get(identifier):
                     model.set_model_state(state[identifier])
+
+    def update_state(self):
+        super().update_state()
+        if self.confirmed:
+            self.state = State.SUCCESS
+        elif self.is_ready:
+            self.state = State.CONFIGURED
+        elif self.previous_step_state is State.FAIL:  # TODO why?
+            self.state = State.FAIL
+        else:
+            self.state = State.INIT
 
     def reset(self):
         self.confirmed = False

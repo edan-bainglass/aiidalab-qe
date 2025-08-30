@@ -10,7 +10,7 @@ from aiida.orm.utils.serialize import serialize
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
 from aiidalab_qe.common.mixins import HasInputStructure, HasModels
 from aiidalab_qe.common.panel import PluginResourceSettingsModel, ResourceSettingsModel
-from aiidalab_qe.common.wizard import QeConfirmableWizardStepModel
+from aiidalab_qe.common.wizard import QeConfirmableDependentWizardStepModel, State
 from aiidalab_qe.utils import shallow_copy_nested_dict
 from aiidalab_qe.workflows import QeAppWorkChain
 
@@ -18,7 +18,7 @@ DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
 
 class SubmissionStepModel(
-    QeConfirmableWizardStepModel,
+    QeConfirmableDependentWizardStepModel,
     HasModels[ResourceSettingsModel],
     HasInputStructure,
 ):
@@ -50,13 +50,6 @@ class SubmissionStepModel(
             "qe_installed",
         ]
 
-    @tl.observe("process_node")
-    def _on_process_node_change(self, _):
-        if self.process_node:
-            self.process_label = self.process_node.label
-            self.process_description = self.process_node.description
-            self.locked = True
-
     def confirm(self):
         super().confirm()
         if not self.process_node:
@@ -67,7 +60,7 @@ class SubmissionStepModel(
             model.update()
 
     def update_process_label(self):
-        if not self.input_structure:
+        if not self.has_structure:
             self.process_label = ""
             return
         structure_label = (
@@ -141,7 +134,7 @@ class SubmissionStepModel(
                 for identifier, model in self.get_models()
                 if model.include
             }
-            if self.has_structure
+            if self.is_ready
             else {}
         )
 
@@ -150,6 +143,19 @@ class SubmissionStepModel(
             if state.get(identifier):
                 model.include = True
                 model.set_model_state(state[identifier])
+
+    def update_state(self):
+        super().update_state()
+        if self.previous_step_state is State.FAIL:  # TODO why?
+            self.state = State.FAIL
+        elif not self.is_ready:
+            self.state = State.INIT
+        elif self.confirmed:
+            self.state = State.SUCCESS
+        elif self.is_blocked:
+            self.state = State.READY
+        else:
+            self.state = State.CONFIGURED
 
     def reset(self):
         with self.hold_trait_notifications():
