@@ -8,7 +8,7 @@ from aiida import orm
 from aiida.engine import ProcessBuilderNamespace, submit
 from aiida.orm.utils.serialize import serialize
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
-from aiidalab_qe.common.mixins import HasInputStructure, HasModels
+from aiidalab_qe.common.mixins import HasModels, HasStructure
 from aiidalab_qe.common.panel import PluginResourceSettingsModel, ResourceSettingsModel
 from aiidalab_qe.common.wizard import QeConfirmableDependentWizardStepModel, State
 from aiidalab_qe.utils import shallow_copy_nested_dict
@@ -20,7 +20,7 @@ DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 class SubmissionStepModel(
     QeConfirmableDependentWizardStepModel,
     HasModels[ResourceSettingsModel],
-    HasInputStructure,
+    HasStructure,
 ):
     identifier = "submission"
 
@@ -64,9 +64,9 @@ class SubmissionStepModel(
             self.process_label = ""
             return
         structure_label = (
-            self.input_structure.label
-            if len(self.input_structure.label) > 0
-            else self.input_structure.get_formula()
+            self.structure.label
+            if len(self.structure.label) > 0
+            else self.structure.get_formula()
         )
         workchain_data = self.input_parameters.get(
             "workchain",
@@ -159,7 +159,7 @@ class SubmissionStepModel(
 
     def reset(self):
         with self.hold_trait_notifications():
-            self.input_structure = None
+            self.structure_uuid = None
             self.input_parameters = {}
             self.process_node = None
             for identifier, model in self.get_models():
@@ -181,10 +181,7 @@ class SubmissionStepModel(
             process_node.base.extras.set("ui_parameters", serialize(parameters))
             # store the workchain name in extras, this will help to filter the workchain in the future
             process_node.base.extras.set("workchain", parameters["workchain"])  # type: ignore
-            process_node.base.extras.set(
-                "structure",
-                self.input_structure.get_formula(),
-            )
+            process_node.base.extras.set("structure", self.structure.get_formula())
             self.process_node = process_node
 
             self._update_url()
@@ -212,7 +209,7 @@ class SubmissionStepModel(
 
     def _create_builder(self, parameters) -> ProcessBuilderNamespace:
         builder = QeAppWorkChain.get_builder_from_protocol(
-            structure=self.input_structure,
+            structure=self.structure,
             # Use shallow copy to avoid parameter mutation by the workflow
             parameters=shallow_copy_nested_dict(parameters),
         )

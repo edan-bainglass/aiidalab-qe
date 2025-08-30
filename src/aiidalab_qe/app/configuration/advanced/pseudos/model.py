@@ -10,7 +10,7 @@ from aiida.common import exceptions
 from aiida.plugins import GroupFactory
 from aiida_quantumespresso.workflows.pw.base import PwBaseWorkChain
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
-from aiidalab_qe.common.mixins import HasInputStructure
+from aiidalab_qe.common.mixins import HasStructure
 from aiidalab_qe.common.panel import PanelModel
 from aiidalab_qe.setup.pseudos import PSEUDODOJO_VERSION, SSSP_VERSION, PseudoFamily
 
@@ -25,13 +25,13 @@ DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
 class PseudosConfigurationSettingsModel(
     PanelModel,
-    HasInputStructure,
+    HasStructure,
 ):
     title = "Pseudopotentials"
     identifier = "pseudos"
 
     dependencies = [
-        "input_structure",
+        "structure_uuid",
         "protocol",
         "spin_orbit",
     ]
@@ -153,7 +153,7 @@ class PseudosConfigurationSettingsModel(
         if self.locked or not (self.functional and self.family):
             return
         self.functionals = (
-            [self.functional for _ in self.input_structure.kinds]
+            [self.functional for _ in self.structure.kinds]
             if self.has_structure
             else []
         )
@@ -225,7 +225,7 @@ class PseudosConfigurationSettingsModel(
             ) from err
 
         pseudos = {}
-        for kind in self.input_structure.kinds:
+        for kind in self.structure.kinds:
             # If the kind is not in the family, we set it to None.
             # This will block the app and notify the user of the missing pseudo.
             try:
@@ -249,7 +249,7 @@ class PseudosConfigurationSettingsModel(
         if self.locked or not self.dictionary:
             return
 
-        kinds = self.input_structure.kinds if self.input_structure else []
+        kinds = self.structure.kinds if self.has_structure else []
         self.status_message = ""
 
         if self.family:
@@ -391,7 +391,7 @@ class PseudosConfigurationSettingsModel(
 
         pseudos = []
         for kind_name, uuid in self.dictionary.items():
-            kind = self.input_structure.get_kind(kind_name)
+            kind = self.structure.get_kind(kind_name)
             try:
                 assert uuid is not None
                 pseudo = orm.load_node(uuid)

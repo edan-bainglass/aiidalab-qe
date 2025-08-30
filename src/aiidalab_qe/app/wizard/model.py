@@ -70,9 +70,9 @@ class WizardModel(Model, HasModels[QeWizardStepModel]):
             self.get_model("configure"),
         )
         if structure_model.confirmed:
-            configuration_model.input_structure = structure_model.input_structure
+            configuration_model.structure_uuid = structure_model.structure_uuid
         else:
-            configuration_model.input_structure = None
+            configuration_model.structure_uuid = None
 
     def update_submission_step(self):
         structure_model = t.cast(
@@ -88,10 +88,10 @@ class WizardModel(Model, HasModels[QeWizardStepModel]):
             self.get_model("submit"),
         )
         if configuration_model.confirmed:
-            submission_model.input_structure = structure_model.input_structure
+            submission_model.structure_uuid = structure_model.structure_uuid
             submission_model.input_parameters = configuration_model.get_model_state()
         else:
-            submission_model.input_structure = None
+            submission_model.structure_uuid = None
             submission_model.input_parameters = {}
 
     def update_results_step(self):

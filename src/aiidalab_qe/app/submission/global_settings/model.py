@@ -5,14 +5,14 @@ import traitlets as tl
 
 from aiida import orm
 from aiidalab_qe.common.code import CodeModel, PwCodeModel
-from aiidalab_qe.common.mixins import HasInputStructure
+from aiidalab_qe.common.mixins import HasStructure
 from aiidalab_qe.common.panel import ResourceSettingsModel
 from aiidalab_qe.common.widgets import QEAppComputationalResourcesWidget
 
 
 class GlobalResourceSettingsModel(
     ResourceSettingsModel,
-    HasInputStructure,
+    HasStructure,
 ):
     """Model for the global code setting."""
 
@@ -20,7 +20,7 @@ class GlobalResourceSettingsModel(
     identifier = "global"
 
     dependencies = [
-        "input_structure",
+        "structure_uuid",
         "input_parameters",
     ]
 
@@ -119,15 +119,15 @@ class GlobalResourceSettingsModel(
         pw_code_model = self.get_model("quantumespresso__pw")
         protocol = self.input_parameters.get("workchain", {}).get("protocol", "fast")
 
-        if not self.input_structure or not pw_code_model.selected:
+        if not self.has_structure or not pw_code_model.selected:
             return  # No code selected or no structure, so nothing to do
 
         num_cpus = pw_code_model.num_cpus * pw_code_model.num_nodes
         on_localhost = (
             orm.load_node(pw_code_model.selected).computer.hostname == "localhost"
         )
-        num_sites = len(self.input_structure.sites)
-        volume = self.input_structure.get_cell_volume()
+        num_sites = len(self.structure.sites)
+        volume = self.structure.get_cell_volume()
 
         code = orm.load_node(pw_code_model.selected)
         machine_cpus = code.computer.get_default_mpiprocs_per_machine() or 1

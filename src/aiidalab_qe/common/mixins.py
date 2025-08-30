@@ -9,29 +9,33 @@ from aiida.common.exceptions import NotExistent
 from aiida_quantumespresso.data.hubbard_structure import HubbardStructureData
 from aiidalab_qe.common.mvc import Model
 
+StructureType = t.Union[orm.StructureData, HubbardStructureData]
 
-class HasInputStructure(tl.HasTraits):
-    input_structure = tl.Union(
-        [
-            tl.Instance(orm.StructureData),
-            tl.Instance(HubbardStructureData),
-        ],
-        allow_none=True,
-    )
+
+class HasStructure(tl.HasTraits):
+    structure_uuid = tl.Unicode(None, allow_none=True)
 
     @property
     def has_structure(self):
-        return self.input_structure is not None
+        return self.structure_uuid is not None
+
+    @property
+    def structure(self) -> StructureType | None:
+        if not self.has_structure:
+            return None
+        try:
+            return t.cast(StructureType, orm.load_node(self.structure_uuid))
+        except NotExistent:
+            return None
 
     @property
     def has_pbc(self):
-        return not self.has_structure or any(self.input_structure.pbc)
+        return not self.has_structure or any(self.structure.pbc)
 
     @property
     def has_tags(self):
-        return any(
-            not kind_name.isalpha()
-            for kind_name in self.input_structure.get_kind_names()
+        return self.has_structure and any(
+            not kind_name.isalpha() for kind_name in self.structure.get_kind_names()
         )
 
 

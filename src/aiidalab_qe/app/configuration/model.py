@@ -4,10 +4,7 @@ import traitlets as tl
 
 from aiida_quantumespresso.common.types import RelaxType
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
-from aiidalab_qe.common.mixins import (
-    HasInputStructure,
-    HasModels,
-)
+from aiidalab_qe.common.mixins import HasModels, HasStructure
 from aiidalab_qe.common.panel import PanelModel
 from aiidalab_qe.common.wizard import QeConfirmableDependentWizardStepModel, State
 
@@ -19,7 +16,7 @@ NO_RELAXATION_OPTION = ("Structure as is", "none")
 class ConfigurationStepModel(
     QeConfirmableDependentWizardStepModel,
     HasModels[PanelModel],
-    HasInputStructure,
+    HasStructure,
 ):
     identifier = "configuration"
 

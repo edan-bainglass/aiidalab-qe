@@ -5,16 +5,16 @@ from aiida_quantumespresso.calculations.functions.create_kpoints_from_distance i
     create_kpoints_from_distance,
 )
 from aiida_quantumespresso.workflows.pdos import PdosWorkChain
-from aiidalab_qe.common.mixins import HasInputStructure
+from aiidalab_qe.common.mixins import HasStructure
 from aiidalab_qe.common.panel import PanelModel
 
 
-class PdosConfigurationSettingsModel(PanelModel, HasInputStructure):
+class PdosConfigurationSettingsModel(PanelModel, HasStructure):
     title = "PDOS"
     identifier = "pdos"
 
     dependencies = [
-        "input_structure",
+        "structure_uuid",
         "workchain.protocol",
     ]
 
@@ -63,7 +63,7 @@ class PdosConfigurationSettingsModel(PanelModel, HasInputStructure):
             mesh_grid = ""
         elif self.nscf_kpoints_distance > 0:
             mesh = create_kpoints_from_distance.process_class._func(
-                self.input_structure,
+                self.structure,
                 orm.Float(self.nscf_kpoints_distance),
                 orm.Bool(False),
             )

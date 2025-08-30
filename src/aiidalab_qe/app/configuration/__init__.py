@@ -60,8 +60,8 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
         )
 
         self._model.observe(
-            self._on_input_structure_change,
-            "input_structure",
+            self._on_structure_change,
+            "structure_uuid",
         )
 
         self.settings = {
@@ -181,7 +181,7 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
         tab.render()
         tab.update()
 
-    def _on_input_structure_change(self, _):
+    def _on_structure_change(self, _):
         self._model.update()
         self.reset()
 
@@ -242,7 +242,7 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
 
             if identifier == "bands":
                 ipw.dlink(
-                    (self._model, "input_structure"),
+                    (self._model, "structure_uuid"),
                     (outline.include, "disabled"),
                     lambda _: not self._model.has_pbc,
                 )

@@ -66,8 +66,8 @@ class StructureSelectionStep(QeConfirmableWizardStep[StructureStepModel]):
             "sssp_installed",
         )
         self._model.observe(
-            self._on_input_structure_change,
-            "input_structure",
+            self._on_structure_change,
+            "structure_uuid",
         )
         self._install_sssp(auto_setup)
 
@@ -130,11 +130,12 @@ class StructureSelectionStep(QeConfirmableWizardStep[StructureStepModel]):
             # NOTE important to do this prior to setting up the links
             # to avoid an override of the structure in the model,
             # which in turn would trigger a reset of the model
-            self.manager.input_structure = self._model.input_structure
+            self.manager.input_structure = self._model.structure
 
         ipw.dlink(
             (self.manager, "structure_node"),
-            (self._model, "input_structure"),
+            (self._model, "structure_uuid"),
+            lambda node: node.uuid if node else None,
         )
         ipw.link(
             (self._model, "manager_output"),
@@ -191,7 +192,7 @@ class StructureSelectionStep(QeConfirmableWizardStep[StructureStepModel]):
     def _on_sssp_installed(self, _):
         self._toggle_sssp_installation_widget()
 
-    def _on_input_structure_change(self, _):
+    def _on_structure_change(self, _):
         self._model.update_widget_text()
         self._model.update_state()
 

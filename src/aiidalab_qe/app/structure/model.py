@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import traitlets as tl
 
-from aiida import orm
-from aiidalab_qe.common.mixins import HasInputStructure
+from aiidalab_qe.common.mixins import HasStructure
 from aiidalab_qe.common.wizard import QeConfirmableWizardStepModel, State
 
 
 class StructureStepModel(
     QeConfirmableWizardStepModel,
-    HasInputStructure,
+    HasStructure,
 ):
     identifier = "structure"
 
@@ -27,18 +26,17 @@ class StructureStepModel(
         ]
 
     def get_model_state(self) -> dict:
-        return {"uuid": self.input_structure.uuid} if self.has_structure else {}
+        return {"uuid": self.structure_uuid} if self.has_structure else {}
 
     def set_model_state(self, state: dict):
-        if uuid := state.get("uuid"):
-            self.input_structure = orm.load_node(uuid)
+        self.structure_uuid = state.get("uuid")
 
     def update_widget_text(self):
         if not self.has_structure:
             self.structure_name = ""
         else:
             self.manager_output = ""
-            self.structure_name = str(self.input_structure.get_formula())
+            self.structure_name = str(self.structure.get_formula())
 
     def update_state(self):
         super().update_state()
@@ -50,7 +48,7 @@ class StructureStepModel(
             self.state = State.CONFIGURED
 
     def reset(self):
-        self.input_structure = None
+        self.structure_uuid = None
         self.structure_name = ""
         self.manager_output = ""
 

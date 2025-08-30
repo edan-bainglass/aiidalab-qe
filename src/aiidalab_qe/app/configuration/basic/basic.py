@@ -16,8 +16,8 @@ class BasicConfigurationSettingsPanel(
     def __init__(self, model: BasicConfigurationSettingsModel, **kwargs):
         super().__init__(model, **kwargs)
         self._model.observe(
-            self._on_input_structure_change,
-            "input_structure",
+            self._on_structure_change,
+            "structure_uuid",
         )
 
     def render(self):
@@ -199,7 +199,7 @@ class BasicConfigurationSettingsPanel(
 
         self._update_info_warning_messages()
 
-    def _on_input_structure_change(self, _):
+    def _on_structure_change(self, _):
         self.refresh(specific="structure")
 
     def _on_electronic_type_change(self, _):

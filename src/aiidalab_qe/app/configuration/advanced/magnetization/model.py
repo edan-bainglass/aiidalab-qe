@@ -6,19 +6,19 @@ from aiida import orm
 from aiida_quantumespresso.workflows.protocols.utils import (
     get_magnetization_parameters,
 )
-from aiidalab_qe.common.mixins import HasInputStructure
+from aiidalab_qe.common.mixins import HasStructure
 from aiidalab_qe.common.panel import PanelModel
 
 
 class MagnetizationConfigurationSettingsModel(
     PanelModel,
-    HasInputStructure,
+    HasStructure,
 ):
     title = "Magnetization"
     identifier = "magnetization"
 
     dependencies = [
-        "input_structure",
+        "structure_uuid",
         "electronic_type",
         "spin_type",
         "pseudos.dictionary",
@@ -112,7 +112,7 @@ class MagnetizationConfigurationSettingsModel(
             return
 
         self._defaults["moments"] = {
-            kind.name: self._get_moment(kind) for kind in self.input_structure.kinds
+            kind.name: self._get_moment(kind) for kind in self.structure.kinds
         }
 
     def _get_moment(self, kind) -> float:

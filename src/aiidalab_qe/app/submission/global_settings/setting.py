@@ -19,8 +19,8 @@ class GlobalResourceSettingsPanel(ResourceSettingsPanel[GlobalResourceSettingsMo
         super().__init__(model, **kwargs)
 
         self._model.observe(
-            self._on_input_structure_change,
-            "input_structure",
+            self._on_structure_change,
+            "structure_uuid",
         )
         self._model.observe(
             self._on_input_parameters_change,
@@ -95,7 +95,7 @@ class GlobalResourceSettingsPanel(ResourceSettingsPanel[GlobalResourceSettingsMo
         self._model.update_active_codes()
         self._model.update_blockers()
 
-    def _on_input_structure_change(self, _):
+    def _on_structure_change(self, _):
         self._model.check_resources()
 
     def _on_plugin_overrides_change(self, _):

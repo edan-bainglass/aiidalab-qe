@@ -22,9 +22,9 @@ from aiidalab_qe.common.infobox import InAppGuide
 from aiidalab_qe.common.mixins import (
     Confirmable,
     HasBlockers,
-    HasInputStructure,
     HasModels,
     HasProcess,
+    HasStructure,
 )
 from aiidalab_qe.common.mvc import Model
 from aiidalab_qe.common.widgets import (
@@ -135,7 +135,7 @@ class ConfigurationSettingsPanel(Panel[PM]):
         if "PYTEST_CURRENT_TEST" in os.environ:
             # Skip resetting to avoid having to inject a structure when testing
             return
-        if isinstance(self._model, HasInputStructure) and not self._model.has_structure:
+        if isinstance(self._model, HasStructure) and not self._model.has_structure:
             self._reset()
 
     def update(self, specific=""):

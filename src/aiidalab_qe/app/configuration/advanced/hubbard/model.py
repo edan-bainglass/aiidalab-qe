@@ -7,19 +7,19 @@ import traitlets as tl
 from pymatgen.core.periodic_table import Element
 
 from aiida_quantumespresso.data.hubbard_structure import HubbardStructureData
-from aiidalab_qe.common.mixins import HasInputStructure
+from aiidalab_qe.common.mixins import HasStructure
 from aiidalab_qe.common.panel import PanelModel
 
 
 class HubbardConfigurationSettingsModel(
     PanelModel,
-    HasInputStructure,
+    HasStructure,
 ):
     title = "Hubbard (DFT+U)"
     identifier = "hubbard"
 
     dependencies = [
-        "input_structure",
+        "structure_uuid",
     ]
 
     is_active = tl.Bool(False)
@@ -53,7 +53,7 @@ class HubbardConfigurationSettingsModel(
             }
         else:
             self.orbital_labels = self._define_orbital_labels()
-            if isinstance(self.input_structure, HubbardStructureData):
+            if isinstance(self.structure, HubbardStructureData):
                 self._defaults["parameters"] = (
                     self.get_parameters_from_hubbard_structure()
                 )
@@ -95,8 +95,8 @@ class HubbardConfigurationSettingsModel(
         self.has_eigenvalues = True
 
     def get_parameters_from_hubbard_structure(self):
-        hubbard_parameters = self.input_structure.hubbard.dict()["parameters"]
-        sites = self.input_structure.sites
+        hubbard_parameters = self.structure.hubbard.model_dump()["parameters"]
+        sites = self.structure.sites
         return {
             f"{sites[hp['atom_index']].kind_name} - {hp['atom_manifold']}": hp["value"]
             for hp in hubbard_parameters
@@ -111,13 +111,12 @@ class HubbardConfigurationSettingsModel(
 
     def _define_orbital_labels(self):
         hubbard_manifold_list = [
-            self._get_manifold(Element(kind.symbol))
-            for kind in self.input_structure.kinds
+            self._get_manifold(Element(kind.symbol)) for kind in self.structure.kinds
         ]
         return [
             f"{kind_name} - {manifold}"
             for kind_name, manifold in zip(
-                self.input_structure.get_kind_names(),
+                self.structure.get_kind_names(),
                 hubbard_manifold_list,
             )
         ]
@@ -127,7 +126,7 @@ class HubbardConfigurationSettingsModel(
 
     def _define_applicable_kind_names(self):
         applicable_kind_names = []
-        for kind in self.input_structure.kinds:
+        for kind in self.structure.kinds:
             element = Element(kind.symbol)
             if (
                 element.is_transition_metal

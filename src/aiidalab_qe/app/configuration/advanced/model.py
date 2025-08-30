@@ -4,7 +4,7 @@ import typing as t
 
 import traitlets as tl
 
-from aiidalab_qe.common.mixins import HasInputStructure, HasModels
+from aiidalab_qe.common.mixins import HasModels, HasStructure
 from aiidalab_qe.common.panel import PanelModel
 from aiidalab_qe.setup.pseudos import PseudoFamily
 from aiidalab_qe.utils import get_pseudo_info
@@ -20,13 +20,13 @@ from .smearing import SmearingConfigurationSettingsModel
 class AdvancedConfigurationSettingsModel(
     PanelModel,
     HasModels[PanelModel],
-    HasInputStructure,
+    HasStructure,
 ):
     title = "Advanced settings"
     identifier = "advanced"
 
     dependencies = [
-        "input_structure",
+        "structure_uuid",
         "workchain.protocol",
         "workchain.spin_type",
         "workchain.electronic_type",
@@ -41,7 +41,7 @@ class AdvancedConfigurationSettingsModel(
     include = True
 
     def get_model_state(self) -> dict:
-        num_atoms = len(self.input_structure.sites) if self.has_structure else 1
+        num_atoms = len(self.structure.sites) if self.has_structure else 1
 
         general = t.cast(
             GeneralConfigurationSettingsModel,
@@ -202,7 +202,7 @@ class AdvancedConfigurationSettingsModel(
             if isinstance(magnetic_moments, list):
                 magnetic_moments = dict(
                     zip(
-                        self.input_structure.get_kind_names(),
+                        self.structure.get_kind_names(),
                         magnetic_moments,
                     )
                 )
@@ -233,7 +233,7 @@ class AdvancedConfigurationSettingsModel(
         control_params: dict = pw_parameters.get("CONTROL", {})
         electron_params: dict = pw_parameters.get("ELECTRONS", {})
 
-        num_atoms = len(self.input_structure.sites) if self.input_structure else 1
+        num_atoms = len(self.structure.sites) if self.has_structure else 1
 
         general = t.cast(
             GeneralConfigurationSettingsModel,

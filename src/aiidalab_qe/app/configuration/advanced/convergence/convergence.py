@@ -14,7 +14,7 @@ class ConvergenceConfigurationSettingsPanel(
 
         self._model.observe(
             self._on_structure_change,
-            "input_structure",
+            "structure_uuid",
         )
         self._model.observe(
             self._on_protocol_change,
@@ -53,7 +53,7 @@ class ConvergenceConfigurationSettingsPanel(
         ipw.dlink(
             (self._model, "scf_conv_thr"),
             (scf_conv_thr_abs, "value"),
-            lambda value: f"{value * len(self._model.input_structure.sites):.5e}",
+            lambda value: f"{value * len(self._model.structure.sites):.5e}",
         )
         scf_conv_thr_abs.add_class("convergence-label")
 
@@ -76,7 +76,7 @@ class ConvergenceConfigurationSettingsPanel(
         ipw.dlink(
             (self._model, "etot_conv_thr"),
             (etot_conv_thr_abs, "value"),
-            lambda value: f"{value * len(self._model.input_structure.sites):.5e}",
+            lambda value: f"{value * len(self._model.structure.sites):.5e}",
         )
         etot_conv_thr_abs.add_class("convergence-label")
 
@@ -107,7 +107,7 @@ class ConvergenceConfigurationSettingsPanel(
             (self.kpoints_distance, "value"),
         )
         ipw.dlink(
-            (self._model, "input_structure"),
+            (self._model, "structure_uuid"),
             (self.kpoints_distance, "disabled"),
             lambda _: not self._model.has_pbc,
         )

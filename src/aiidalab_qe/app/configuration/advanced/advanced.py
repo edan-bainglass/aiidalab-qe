@@ -78,8 +78,8 @@ class AdvancedConfigurationSettingsPanel(
         model.add_model("hubbard", hubbard_model)
 
         self._model.observe(
-            self._on_input_structure_change,
-            "input_structure",
+            self._on_structure_change,
+            "structure_uuid",
         )
         self._model.observe(
             self._on_spin_type_change,
@@ -123,7 +123,7 @@ class AdvancedConfigurationSettingsPanel(
 
         self._update_tabs()
 
-    def _on_input_structure_change(self, _):
+    def _on_structure_change(self, _):
         self.refresh(specific="structure")
 
     def _on_spin_type_change(self, _):
@@ -148,7 +148,7 @@ class AdvancedConfigurationSettingsPanel(
         self.advanced_tabs.selected_index = 0
 
     def _on_advanced_tab_change(self, change):
-        tab: ConfigurationSettingsPanel = self.advanced_tabs.children[change["new"]]
+        tab: ConfigurationSettingsPanel = self.advanced_tabs.children[change["new"]]  # type: ignore
         tab.render()
 
     def _on_reset_to_defaults_button_click(self, _):

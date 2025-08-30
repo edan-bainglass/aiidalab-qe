@@ -1,7 +1,7 @@
 import traitlets as tl
 
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
-from aiidalab_qe.common.mixins import HasInputStructure
+from aiidalab_qe.common.mixins import HasStructure
 from aiidalab_qe.common.panel import PanelModel
 
 DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
@@ -14,13 +14,13 @@ OLD_PROTOCOL_MAP = {
 
 class BasicConfigurationSettingsModel(
     PanelModel,
-    HasInputStructure,
+    HasStructure,
 ):
     title = "Basic settings"
     identifier = "workchain"
 
     dependencies = [
-        "input_structure",
+        "structure_uuid",
     ]
 
     protocol_options = tl.List(

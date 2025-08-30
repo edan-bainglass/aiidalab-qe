@@ -21,8 +21,8 @@ class PseudosConfigurationSettingsPanel(
         super().__init__(model, **kwargs)
 
         self._model.observe(
-            self._on_input_structure_change,
-            "input_structure",
+            self._on_structure_change,
+            "structure_uuid",
         )
         self._model.observe(
             self._on_protocol_change,
@@ -215,7 +215,7 @@ class PseudosConfigurationSettingsPanel(
 
         self.refresh(specific="widgets")
 
-    def _on_input_structure_change(self, _):
+    def _on_structure_change(self, _):
         self.refresh(specific="structure")
 
     def _on_protocol_change(self, _):
@@ -276,7 +276,7 @@ class PseudosConfigurationSettingsPanel(
 
         children = []
 
-        kinds = self._model.input_structure.kinds if self._model.has_structure else []
+        kinds = self._model.structure.kinds if self._model.has_structure else []
 
         for index, kind in enumerate(kinds):
             uploader_model = PseudoPotentialUploaderModel(kind.name, kind.symbol)

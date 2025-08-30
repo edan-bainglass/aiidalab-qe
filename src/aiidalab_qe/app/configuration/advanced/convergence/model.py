@@ -8,19 +8,19 @@ from aiida_quantumespresso.calculations.functions.create_kpoints_from_distance i
     create_kpoints_from_distance,
 )
 from aiida_quantumespresso.workflows.pw.base import PwBaseWorkChain
-from aiidalab_qe.common.mixins import HasInputStructure
+from aiidalab_qe.common.mixins import HasStructure
 from aiidalab_qe.common.panel import PanelModel
 
 
 class ConvergenceConfigurationSettingsModel(
     PanelModel,
-    HasInputStructure,
+    HasStructure,
 ):
     title = "Convergence/Accuracy"
     identifier = "convergence"
 
     dependencies = [
-        "input_structure",
+        "structure_uuid",
         "protocol",
     ]
 
@@ -79,7 +79,7 @@ class ConvergenceConfigurationSettingsModel(
         if not self.has_structure:
             self.help_message = "No structure available."
             return
-        num_atoms = len(self.input_structure.sites)
+        num_atoms = len(self.structure.sites)
         self.help_message = f"""
             <div style="line-height: 1.4; margin-bottom: 5px;">
                 Setting the energy threshold for the self-consistent field (SCF)
@@ -131,7 +131,7 @@ class ConvergenceConfigurationSettingsModel(
             mesh_grid = ""
         elif self.kpoints_distance > 0:
             mesh = create_kpoints_from_distance.process_class._func(
-                self.input_structure,
+                self.structure,
                 orm.Float(self.kpoints_distance),
                 orm.Bool(False),
             )

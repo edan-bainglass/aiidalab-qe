@@ -26,8 +26,8 @@ class MagnetizationConfigurationSettingsPanel(
         super().__init__(model, **kwargs)
 
         self._model.observe(
-            self._on_input_structure_change,
-            "input_structure",
+            self._on_structure_change,
+            "structure_uuid",
         )
         self._model.observe(
             self._on_electronic_type_change,
@@ -111,7 +111,7 @@ class MagnetizationConfigurationSettingsPanel(
 
         self.refresh(specific="widgets")
 
-    def _on_input_structure_change(self, _):
+    def _on_structure_change(self, _):
         self.refresh(specific="structure")
 
     def _on_electronic_type_change(self, _):
@@ -150,9 +150,7 @@ class MagnetizationConfigurationSettingsPanel(
         children = []
 
         kind_names = (
-            self._model.input_structure.get_kind_names()
-            if self._model.input_structure
-            else []
+            self._model.structure.get_kind_names() if self._model.has_structure else []
         )
 
         for kind_name in kind_names:

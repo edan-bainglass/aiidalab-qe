@@ -13,8 +13,8 @@ class HubbardConfigurationSettingsPanel(
         super().__init__(model, **kwargs)
 
         self._model.observe(
-            self._on_input_structure_change,
-            "input_structure",
+            self._on_structure_change,
+            "structure_uuid",
         )
         self._model.observe(
             self._on_hubbard_activation,
@@ -77,7 +77,7 @@ class HubbardConfigurationSettingsPanel(
 
         self.refresh(specific="widgets")
 
-    def _on_input_structure_change(self, _):
+    def _on_structure_change(self, _):
         self.refresh(specific="structure")
 
     def _on_hubbard_activation(self, _):
