@@ -69,14 +69,8 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
             "advanced": self.advanced_settings,
         }
 
-        self.installed_property_children = []
-        self.not_installed_property_children = []
-        self._fetch_plugin_calculation_settings()
-
     def _render(self):
         super()._render()
-
-        self._fetch_not_installed_property()
 
         # RelaxType: degrees of freedom in geometry optimization
         self.relax_type_help = ipw.HTML()
@@ -110,12 +104,15 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
             tooltip="Browse and install additional plugins from the Plugin Store",
         )
 
+        self.installed_properties = ipw.VBox()
+        self.available_properties = ipw.HTML()
+
         self.sub_steps = ipw.Accordion(
             children=[
                 ipw.VBox(
                     children=[
                         InAppGuide(identifier="properties-selection"),
-                        *self.installed_property_children,
+                        self.installed_properties,
                         ipw.HTML("<hr>"),
                         ipw.HTML(
                             value="""
@@ -132,7 +129,7 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
                             layout=ipw.Layout(margin="10px 0px"),
                         ),
                         self.install_new_plugin_button,
-                        *self.not_installed_property_children,
+                        self.available_properties,
                     ]
                 ),
                 ipw.VBox(
@@ -166,6 +163,8 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
         ]
 
     def _post_render(self):
+        self._fetch_plugin_calculation_settings()
+        self._fetch_available_properties()
         self._update_tabs()
 
     def reset(self):
@@ -200,8 +199,8 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
                 self.tabs.set_title(i, title)
             self.tabs.selected_index = 0
 
-    def _fetch_not_installed_property(self, plugin_config_source=None):
-        self.not_installed_property_children = []
+    def _fetch_available_properties(self, plugin_config_source=None):
+        available_properties = []
 
         plugin_config_source = plugin_config_source or DEFAULT_PLUGIN_CONFIG_SOURCE
         plugin_manager = PluginManager(plugin_config_source)
@@ -213,18 +212,18 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
 
             is_installed = is_package_installed(plugin_name)
             if not is_installed:
-                checkbox = ipw.Checkbox(
-                    value=False,
-                    description=plugin_data["title"],
-                    disabled=True,
-                    indent=False,
-                    style={"description_width": "initial"},
-                )
-                self.not_installed_property_children.append(checkbox)
+                available_properties.append(plugin_data["title"])
+
+        self.available_properties.value = f"""
+            <ul style="margin-top: 8px">
+                {"".join(f"<li>{title}</li>" for title in available_properties)}
+            </ul>
+        """
 
     def _fetch_plugin_calculation_settings(self):
         outlines = get_entry_items("aiidalab_qe.properties", "outline")
         entries = get_entry_items("aiidalab_qe.properties", "configuration")
+        installed_properties = []
         for identifier, configuration in entries.items():
             for key in ("panel", "model"):
                 if key not in configuration:
@@ -262,7 +261,7 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
                 "include",
             )
 
-            self.installed_property_children.append(
+            installed_properties.append(
                 ipw.HBox(
                     children=[
                         outline,
@@ -270,6 +269,8 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
                     ]
                 )
             )
+
+            self.installed_properties.children = installed_properties
 
             panel: ConfigurationSettingsPanel = configuration["panel"](model=model)
             self.settings[identifier] = panel
