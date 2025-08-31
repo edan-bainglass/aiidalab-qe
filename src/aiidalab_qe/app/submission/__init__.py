@@ -80,7 +80,6 @@ class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
         self.settings = {
             "global": self.global_resources,
         }
-        self._fetch_plugin_resource_settings()
 
         self._set_up_qe(auto_setup)
 
@@ -178,6 +177,7 @@ class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
         ]
 
     def _post_render(self):
+        self._fetch_plugin_resource_settings()
         self._update_tabs()
 
     def reset(self):

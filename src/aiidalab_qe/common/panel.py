@@ -180,6 +180,7 @@ class ResourceSettingsModel(PanelModel, HasModels[CodeModel]):
         super().__init__(*args, **kwargs)
 
         # Used by the code-setup thread to fetch code options
+        # TODO unstable! see #1182 and #1208
         self.DEFAULT_USER_EMAIL = orm.User.collection.get_default().email
 
     def add_model(self, identifier, model):

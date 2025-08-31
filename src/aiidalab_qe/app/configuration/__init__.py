@@ -199,27 +199,6 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
                 self.tabs.set_title(i, title)
             self.tabs.selected_index = 0
 
-    def _fetch_available_properties(self, plugin_config_source=None):
-        available_properties = []
-
-        plugin_config_source = plugin_config_source or DEFAULT_PLUGIN_CONFIG_SOURCE
-        plugin_manager = PluginManager(plugin_config_source)
-        for plugin_name, plugin_data in plugin_manager.data.items():
-            if (
-                plugin_data.get("category", "calculation").lower() != "calculation"
-            ):  # Ignore non-property plugins
-                continue
-
-            is_installed = is_package_installed(plugin_name)
-            if not is_installed:
-                available_properties.append(plugin_data["title"])
-
-        self.available_properties.value = f"""
-            <ul style="margin-top: 8px">
-                {"".join(f"<li>{title}</li>" for title in available_properties)}
-            </ul>
-        """
-
     def _fetch_plugin_calculation_settings(self):
         outlines = get_entry_items("aiidalab_qe.properties", "outline")
         entries = get_entry_items("aiidalab_qe.properties", "configuration")
@@ -274,3 +253,23 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
 
             panel: ConfigurationSettingsPanel = configuration["panel"](model=model)
             self.settings[identifier] = panel
+
+    def _fetch_available_properties(self, plugin_config_source=None):
+        plugin_config_source = plugin_config_source or DEFAULT_PLUGIN_CONFIG_SOURCE
+        plugin_manager = PluginManager(plugin_config_source)
+        available_properties = []
+        for plugin_name, plugin_data in plugin_manager.data.items():
+            if (
+                plugin_data.get("category", "calculation").lower() != "calculation"
+            ):  # Ignore non-property plugins
+                continue
+
+            is_installed = is_package_installed(plugin_name)
+            if not is_installed:
+                available_properties.append(plugin_data["title"])
+
+        self.available_properties.value = f"""
+            <ul style="margin-top: 8px">
+                {"".join(f"<li>{title}</li>" for title in available_properties)}
+            </ul>
+        """
