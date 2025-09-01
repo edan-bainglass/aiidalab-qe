@@ -34,7 +34,6 @@ class QeApp:
 
         self._load_styles()
 
-        # Initialize MVC components
         self.model = AppModel(process_identifier=process)
         self.view = AppView()
         display(self.view)
@@ -63,7 +62,6 @@ class QeApp:
                 )
             )
 
-        # Set up bug report handling (if a URL is provided)
         if bug_report_url:
             install_create_github_issue_exception_handler(
                 self.log_widget if show_log else self.view.output,
@@ -71,9 +69,22 @@ class QeApp:
                 labels=("bug", "automated-report"),
             )
 
-        # setup UI controls
         self.controller = AppController(self.model, self.view)
         self.controller.enable_toggles()
+
+        if not self.model.validate_process():
+            self.view.app_container.children = [
+                ipw.HTML(f"""
+                    <div class="alert alert-danger" style="text-align: center">
+                        Process {process} does not exist
+                        <br>
+                        Please visit the <b>Calculation history</b> page to view
+                        existing processes
+                    </div>
+                """)
+            ]
+        else:
+            self.load()
 
     def _load_styles(self):
         """Load CSS styles from the static directory."""

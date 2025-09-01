@@ -2,14 +2,13 @@ import typing as t
 
 import traitlets as tl
 
-from aiida import orm
 from aiidalab_qe.app.configuration import ConfigurationStepModel
 from aiidalab_qe.app.result import ResultsStepModel
 from aiidalab_qe.app.structure import StructureStepModel
 from aiidalab_qe.app.submission import SubmissionStepModel
 from aiidalab_qe.common.mixins import HasModels
 from aiidalab_qe.common.mvc import Model
-from aiidalab_qe.common.wizard import WizardStepModel, State
+from aiidalab_qe.common.wizard import State, WizardStepModel
 from aiidalab_qe.utils import debugger
 
 
@@ -50,8 +49,7 @@ class WizardModel(Model, HasModels[WizardStepModel]):
                     step = 2
 
                     if process_identifier := state.get("process_identifier"):
-                        process_node = orm.load_node(process_identifier)
-                        submission_model.process_node = process_node
+                        submission_model.process_uuid = process_identifier
                         submission_model.confirm()
                         structure_model.lock()
                         configuration_model.lock()
@@ -106,9 +104,8 @@ class WizardModel(Model, HasModels[WizardStepModel]):
             self.get_model("results"),
         )
         tl.dlink(
-            (submission_model, "process_node"),
+            (submission_model, "process_uuid"),
             (results_model, "process_uuid"),
-            lambda node: node.uuid if node is not None else None,
         )
 
     def lock_app(self):

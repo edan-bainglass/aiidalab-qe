@@ -6,6 +6,7 @@ import traitlets as tl
 from IPython.display import Javascript, display
 
 from aiida import orm
+from aiida.common.exceptions import NotExistent
 from aiida.engine import ProcessBuilderNamespace, submit
 from aiida.orm.utils.serialize import serialize
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
@@ -27,7 +28,7 @@ class SubmissionStepModel(
 
     input_parameters = tl.Dict()
 
-    process_node = tl.Instance(orm.WorkChainNode, allow_none=True)
+    process_uuid = tl.Unicode(None, allow_none=True)
     process_label = tl.Unicode("")
     process_description = tl.Unicode("")
 
@@ -55,7 +56,7 @@ class SubmissionStepModel(
 
     def confirm(self):
         super().confirm()
-        if not self.process_node:
+        if not self.process_uuid:
             self._submit()
 
     def update(self):
@@ -107,6 +108,16 @@ class SubmissionStepModel(
         label = f"{structure_label} [{', '.join(filtered_label_details)}] {properties_info}".strip()
 
         self.process_label = label
+
+    def update_process_metadata(self):
+        if not self.process_uuid:
+            return
+        try:
+            process_node = orm.load_node(self.process_uuid)
+            self.process_label = process_node.label
+            self.process_description = process_node.description
+        except NotExistent:
+            return
 
     def update_plugin_inclusion(self):
         properties = self._get_properties()
@@ -168,7 +179,7 @@ class SubmissionStepModel(
         with self.hold_trait_notifications():
             self.structure_uuid = None
             self.input_parameters = {}
-            self.process_node = None
+            self.process_uuid = None
             for identifier, model in self.get_models():
                 if identifier not in self._default_models:
                     model.include = False
@@ -189,13 +200,13 @@ class SubmissionStepModel(
             # store the workchain name in extras, this will help to filter the workchain in the future
             process_node.base.extras.set("workchain", parameters["workchain"])  # type: ignore
             process_node.base.extras.set("structure", self.structure.get_formula())
-            self.process_node = process_node
+            self.process_uuid = process_node.uuid
 
-            self._update_url()
-
-    def _update_url(self):
-        pk = self.process_node.pk
-        display(Javascript(f"window.history.pushState(null, '', '?pk={pk}');"))
+            display(
+                Javascript(
+                    f"window.history.pushState(null, '', '?pk={process_node.pk}');"
+                )
+            )
 
     def _get_properties(self) -> list[str]:
         return self.input_parameters.get("workchain", {}).get("properties", [])

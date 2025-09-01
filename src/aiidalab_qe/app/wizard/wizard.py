@@ -6,7 +6,7 @@ from aiidalab_qe.app.configuration import ConfigurationStep, ConfigurationStepMo
 from aiidalab_qe.app.result import ResultsStep, ResultsStepModel
 from aiidalab_qe.app.structure import StructureSelectionStep, StructureStepModel
 from aiidalab_qe.app.submission import SubmissionStep, SubmissionStepModel
-from aiidalab_qe.common.wizard import WizardStep, State
+from aiidalab_qe.common.wizard import State, WizardStep
 
 from .model import WizardModel
 

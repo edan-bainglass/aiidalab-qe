@@ -196,6 +196,21 @@ class AppModel(tl.HasTraits):
         super().__init__(*args, **kwargs)
         self.process_identifier = process_identifier
 
+    @property
+    def process_node(self) -> orm.WorkChainNode:
+        return t.cast(orm.WorkChainNode, orm.load_node(self.process_identifier))
+
+    def validate_process(self):
+        """Validate the process identifier."""
+        if self.process_identifier:
+            try:
+                process_node = self.process_node
+                assert isinstance(process_node, orm.WorkChainNode)
+                self.process_identifier = process_node.uuid
+            except Exception:
+                return False
+        return True
+
     def update_active_guide(self, category, guide):
         """Sets the current active guide."""
         active_guide = f"{category}/{guide}" if category != "No guides" else category
@@ -204,7 +219,7 @@ class AppModel(tl.HasTraits):
     def get_state_from_process(self) -> dict:
         if not self.process_identifier:
             return {}
-        process = t.cast(orm.WorkChainNode, orm.load_node(self.process_identifier))
+        process = self.process_node
         parameters: dict = process.base.extras.get("ui_parameters", {})
         if parameters and isinstance(parameters, str):
             parameters = deserialize_unsafe(parameters)

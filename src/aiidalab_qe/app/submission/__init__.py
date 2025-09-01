@@ -235,9 +235,7 @@ class SubmissionStep(ConfirmableDependentWizardStep[SubmissionStepModel]):
             self._model.update()
 
     def _on_process_node_change(self, _):
-        if self._model.process_node:
-            self._model.process_label = self._model.process_node.label
-            self._model.process_description = self._model.process_node.description
+        self._model.update_process_metadata()
 
     def _on_fetched_resources_change(self, _):
         self._update_tabs()
