@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from time import sleep
+
 import traitlets as tl
 
 from aiida_quantumespresso.common.types import RelaxType
@@ -110,8 +112,10 @@ class ConfigurationStepModel(
         return state
 
     def set_model_state(self, state: dict):
-        while not self.installed_properties_fetched:
-            continue
+        i = 0
+        while not self.installed_properties_fetched and i <= 50:
+            sleep(0.1)
+            i += 1
         workchain_parameters: dict = state.get("workchain", {})
         self.relax_type = workchain_parameters.get("relax_type")
         properties = set(workchain_parameters.get("properties", []))

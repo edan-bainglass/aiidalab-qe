@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from time import sleep
+
 import traitlets as tl
 from IPython.display import Javascript, display
 
@@ -140,8 +142,10 @@ class SubmissionStepModel(
         )
 
     def set_model_state(self, state: dict):
-        while not self.fetched_resources:
-            continue
+        i = 0
+        while not self.fetched_resources and i <= 50:
+            sleep(0.1)
+            i += 1
         for identifier, model in self.get_models():
             if state.get(identifier):
                 model.include = True
