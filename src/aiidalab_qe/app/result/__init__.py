@@ -3,7 +3,7 @@ from __future__ import annotations
 import ipywidgets as ipw
 
 from aiidalab_qe.common.infobox import InAppGuide
-from aiidalab_qe.common.wizard import QeDependentWizardStep, State
+from aiidalab_qe.common.wizard import DependentWizardStep, State
 from aiidalab_widgets_base import LoadingWidget, ProcessMonitor
 
 from .components import ResultsComponent
@@ -13,7 +13,7 @@ from .components.viewer import WorkChainResultsViewer, WorkChainResultsViewerMod
 from .model import ResultsStepModel
 
 
-class ResultsStep(QeDependentWizardStep[ResultsStepModel]):
+class ResultsStep(DependentWizardStep[ResultsStepModel]):
     missing_information_warning = (
         "No available results. Did you submit or load a calculation?"
     )

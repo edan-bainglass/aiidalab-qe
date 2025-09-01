@@ -174,20 +174,16 @@ class ResourceSettingsModel(PanelModel, HasModels[CodeModel]):
 
     warning_messages = tl.Unicode("")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, default_user_email: str = "", *args, **kwargs):
         self.default_codes: dict[str, dict] = kwargs.pop("default_codes", {})
-
+        self._default_user_email = default_user_email
         super().__init__(*args, **kwargs)
-
-        # Used by the code-setup thread to fetch code options
-        # TODO unstable! see #1182 and #1208
-        self.DEFAULT_USER_EMAIL = orm.User.collection.get_default().email
 
     def add_model(self, identifier, model):
         super().add_model(identifier, model)
         code_key = model.default_calc_job_plugin.split(".")[-1]
         model.update(
-            self.DEFAULT_USER_EMAIL,
+            self._default_user_email,
             default_code=self.default_codes.get(code_key, {}).get("code"),
         )
 
@@ -195,12 +191,12 @@ class ResourceSettingsModel(PanelModel, HasModels[CodeModel]):
         for _, code_model in self.get_models():
             code_key = code_model.default_calc_job_plugin.split(".")[-1]
             code_model.update(
-                self.DEFAULT_USER_EMAIL,
+                self._default_user_email,
                 default_code=self.default_codes.get(code_key, {}).get("code"),
                 refresh=True,
             )
 
-    def get_model_state(self):
+    def get_model_state(self) -> dict:
         return {
             "codes": {
                 identifier: code_model.get_model_state()
@@ -209,8 +205,8 @@ class ResourceSettingsModel(PanelModel, HasModels[CodeModel]):
             },
         }
 
-    def set_model_state(self, parameters: dict):
-        code_data = parameters.get("codes", {}) or self.default_codes
+    def set_model_state(self, state: dict):
+        code_data = state.get("codes", {}) or self.default_codes
         for identifier, code_model in self.get_models():
             if identifier in code_data:
                 code_model.set_model_state(code_data[identifier])
@@ -228,6 +224,7 @@ class ResourceSettingsPanel(Panel[RSM]):
     def __init__(self, model, **kwargs):
         super().__init__(model, **kwargs)
         self.code_widgets = {}
+        self.code_widgets_container = ipw.VBox()
 
     def register_code_trait_callbacks(self, code_model: CodeModel):
         """Registers event handlers on code model traits."""
@@ -361,15 +358,15 @@ class PluginResourceSettingsModel(ResourceSettingsModel):
                 code_resources: dict = self.global_codes[model_key]  # type: ignore
                 code_model.set_model_state(code_resources)
 
-    def get_model_state(self):
+    def get_model_state(self) -> dict:
         return {
             "override": self.override,
             **super().get_model_state(),
         }
 
-    def set_model_state(self, parameters: dict):
-        self.override = parameters.get("override", False)
-        super().set_model_state(parameters)
+    def set_model_state(self, state: dict):
+        self.override = state.get("override", False)
+        super().set_model_state(state)
 
     def _link_model(self, model: CodeModel):
         tl.link(
@@ -412,7 +409,6 @@ class PluginResourceSettingsPanel(ResourceSettingsPanel[PRSM]):
             (self._model, "override"),
             (self.override, "value"),
         )
-        self.code_widgets_container = ipw.VBox()
 
         self.children = [
             ipw.HBox(
@@ -430,8 +426,6 @@ class PluginResourceSettingsPanel(ResourceSettingsPanel[PRSM]):
         for _, code_model in self._model.get_models():
             if code_model.is_active:
                 self._toggle_code(code_model)
-
-        return self.code_widgets_container
 
     def _on_global_codes_change(self, _):
         self._model.update()

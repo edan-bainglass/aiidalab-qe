@@ -3,11 +3,13 @@ from __future__ import annotations
 import traitlets as tl
 
 from aiidalab_qe.common.mixins import HasStructure
-from aiidalab_qe.common.wizard import QeConfirmableWizardStepModel, State
+from aiidalab_qe.common.wizard import ConfirmableWizardStepModel, State
+from aiidalab_qe.utils import debugger
 
 
+@debugger
 class StructureStepModel(
-    QeConfirmableWizardStepModel,
+    ConfirmableWizardStepModel,
     HasStructure,
 ):
     identifier = "structure"
@@ -42,10 +44,10 @@ class StructureStepModel(
         super().update_state()
         if self.confirmed:
             self.state = State.SUCCESS
-        elif not self.has_structure:
-            self.state = State.READY
-        else:
+        elif self.has_structure:
             self.state = State.CONFIGURED
+        else:
+            self.state = State.READY
 
     def reset(self):
         self.structure_uuid = None

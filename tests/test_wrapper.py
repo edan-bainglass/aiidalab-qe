@@ -1,4 +1,8 @@
-from aiidalab_qe.app.wrapper import AppWrapperContoller, AppWrapperModel, AppWrapperView
+from aiidalab_qe.app.wrapper import (
+    AppWrapperController,
+    AppWrapperModel,
+    AppWrapperView,
+)
 
 
 class TestWrapper:
@@ -61,4 +65,4 @@ class TestWrapper:
         """Instansiate `AppWrapper` MVC components."""
         self.model = AppWrapperModel()
         self.view = AppWrapperView()
-        self.controller = AppWrapperContoller(self.model, self.view)
+        self.controller = AppWrapperController(self.model, self.view)

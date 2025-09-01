@@ -19,7 +19,8 @@ from aiidalab_qe.common import (
 from aiidalab_qe.common.infobox import InAppGuide
 from aiidalab_qe.common.setup_pseudos import PseudosInstallWidget
 from aiidalab_qe.common.widgets import CategorizedStructureExamplesWidget
-from aiidalab_qe.common.wizard import QeConfirmableWizardStep
+from aiidalab_qe.common.wizard import ConfirmableWizardStep
+from aiidalab_qe.utils import debugger
 from aiidalab_widgets_base import (
     BasicCellEditor,
     BasicStructureEditor,
@@ -42,7 +43,8 @@ Examples = [
 ]
 
 
-class StructureSelectionStep(QeConfirmableWizardStep[StructureStepModel]):
+@debugger
+class StructureSelectionStep(ConfirmableWizardStep[StructureStepModel]):
     """Integrated widget for the selection and edition of structure.
     The widget includes a structure manager that allows to select a structure
     from different sources. It also includes the structure editor. Both the

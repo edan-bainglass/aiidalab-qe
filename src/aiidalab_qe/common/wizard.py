@@ -9,6 +9,7 @@ import traitlets as tl
 
 from aiidalab_qe.common.mixins import Confirmable, HasBlockers, HasModels
 from aiidalab_qe.common.mvc import Model
+from aiidalab_qe.utils import debugger
 from aiidalab_widgets_base import LoadingWidget
 
 
@@ -23,7 +24,8 @@ class State(enum.Enum):
     SUCCESS = 4
 
 
-class QeWizardStepModel(Model):
+@debugger
+class WizardStepModel(Model):
     identifier = "qe-wizard-step"
 
     state = tl.UseEnum(State, default_value=State.INIT)
@@ -38,13 +40,13 @@ class QeWizardStepModel(Model):
 
     def update_state(self):
         pass
-        # print(self.__class__.__name__, "updating")
 
 
-WSM = t.TypeVar("WSM", bound=QeWizardStepModel)
+WSM = t.TypeVar("WSM", bound=WizardStepModel)
 
 
-class QeWizardStep(ipw.VBox, t.Generic[WSM]):
+@debugger
+class WizardStep(ipw.VBox, t.Generic[WSM]):
     def __init__(self, model: WSM, **kwargs):
         self.loading_message = LoadingWidget(f"Loading {model.identifier} step")
 
@@ -83,8 +85,9 @@ class QeWizardStep(ipw.VBox, t.Generic[WSM]):
         self.add_class(self._background_class)
 
 
-class QeConfirmableWizardStepModel(
-    QeWizardStepModel,
+@debugger
+class ConfirmableWizardStepModel(
+    WizardStepModel,
     Confirmable,
     HasBlockers,
 ):
@@ -93,12 +96,14 @@ class QeConfirmableWizardStepModel(
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.confirmation_exceptions += [
-            "state",
-            "locked",
-            "blockers",
-            "blocker_messages",
-        ]
+        self.confirmation_exceptions.extend(
+            [
+                "state",
+                "locked",
+                "blockers",
+                "blocker_messages",
+            ]
+        )
 
     @property
     def is_blocked(self):
@@ -134,10 +139,11 @@ class QeConfirmableWizardStepModel(
         raise NotImplementedError
 
 
-CWSM = t.TypeVar("CWSM", bound=QeConfirmableWizardStepModel)
+CWSM = t.TypeVar("CWSM", bound=ConfirmableWizardStepModel)
 
 
-class QeConfirmableWizardStep(QeWizardStep[CWSM]):
+@debugger
+class ConfirmableWizardStep(WizardStep[CWSM]):
     def __init__(
         self,
         model: CWSM,
@@ -212,20 +218,22 @@ class QeConfirmableWizardStep(QeWizardStep[CWSM]):
         self.confirm_button.disabled = can_confirm
 
 
-class QeDependentWizardStepModel(
-    QeWizardStepModel,
+@debugger
+class DependentWizardStepModel(
+    WizardStepModel,
 ):
-    previous_step_state = tl.UseEnum(State)
+    previous_step_state = tl.UseEnum(State, default_value=State.INIT)
 
     @property
     def is_ready(self) -> bool:
         return self.previous_step_state is State.SUCCESS
 
 
-DWSM = t.TypeVar("DWSM", bound=QeDependentWizardStepModel)
+DWSM = t.TypeVar("DWSM", bound=DependentWizardStepModel)
 
 
-class QeDependentWizardStep(QeWizardStep[DWSM]):
+@debugger
+class DependentWizardStep(WizardStep[DWSM]):
     missing_information_warning = "Missing information"
 
     def __init__(self, model: DWSM, **kwargs):
@@ -266,18 +274,22 @@ class QeDependentWizardStep(QeWizardStep[DWSM]):
         self.children = self.previous_children
 
 
-class QeConfirmableDependentWizardStepModel(
-    QeDependentWizardStepModel,
-    QeConfirmableWizardStepModel,
+@debugger
+class ConfirmableDependentWizardStepModel(
+    DependentWizardStepModel,
+    ConfirmableWizardStepModel,
 ):
-    previous_step_state = tl.UseEnum(State)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.confirmation_exceptions.append("previous_step_state")
 
 
-CDWSM = t.TypeVar("CDWSM", bound=QeConfirmableDependentWizardStepModel)
+CDWSM = t.TypeVar("CDWSM", bound=ConfirmableDependentWizardStepModel)
 
 
-class QeConfirmableDependentWizardStep(
-    QeDependentWizardStep[CDWSM],
-    QeConfirmableWizardStep[CDWSM],
+@debugger
+class ConfirmableDependentWizardStep(
+    DependentWizardStep[CDWSM],
+    ConfirmableWizardStep[CDWSM],
 ):
     """A confirmable dependent wizard step."""

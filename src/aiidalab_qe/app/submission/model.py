@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ipywidgets as ipw
 import traitlets as tl
 from IPython.display import Javascript, display
 
@@ -10,7 +9,7 @@ from aiida.orm.utils.serialize import serialize
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
 from aiidalab_qe.common.mixins import HasModels, HasStructure
 from aiidalab_qe.common.panel import PluginResourceSettingsModel, ResourceSettingsModel
-from aiidalab_qe.common.wizard import QeConfirmableDependentWizardStepModel, State
+from aiidalab_qe.common.wizard import ConfirmableDependentWizardStepModel, State
 from aiidalab_qe.utils import shallow_copy_nested_dict
 from aiidalab_qe.workflows import QeAppWorkChain
 
@@ -18,7 +17,7 @@ DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
 
 class SubmissionStepModel(
-    QeConfirmableDependentWizardStepModel,
+    ConfirmableDependentWizardStepModel,
     HasModels[ResourceSettingsModel],
     HasStructure,
 ):
@@ -36,6 +35,7 @@ class SubmissionStepModel(
     qe_installed = tl.Bool(allow_none=True)
 
     plugin_overrides = tl.List(tl.Unicode())
+    fetched_resources = tl.Bool(False)
 
     def __init__(self, *args, **kwargs):
         self._default_models = {
@@ -48,6 +48,7 @@ class SubmissionStepModel(
             "warning_messages",
             "installing_qe",
             "qe_installed",
+            "fetched_resources",
         ]
 
     def confirm(self):
@@ -139,6 +140,8 @@ class SubmissionStepModel(
         )
 
     def set_model_state(self, state: dict):
+        while not self.fetched_resources:
+            continue
         for identifier, model in self.get_models():
             if state.get(identifier):
                 model.include = True
@@ -189,20 +192,6 @@ class SubmissionStepModel(
     def _update_url(self):
         pk = self.process_node.pk
         display(Javascript(f"window.history.pushState(null, '', '?pk={pk}');"))
-
-    def _link_model(self, model: ResourceSettingsModel):
-        for dependency in model.dependencies:
-            dependency_parts = dependency.split(".")
-            if len(dependency_parts) == 1:  # from parent, e.g. input_structure
-                target_model = self
-                trait = dependency
-            else:  # from sibling, e.g. workchain.protocol
-                sibling, trait = dependency_parts
-                target_model = self.get_model(sibling)
-            ipw.dlink(
-                (target_model, trait),
-                (model, trait),
-            )
 
     def _get_properties(self) -> list[str]:
         return self.input_parameters.get("workchain", {}).get("properties", [])

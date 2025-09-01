@@ -5,8 +5,11 @@ Authors: AiiDAlab team
 
 from __future__ import annotations
 
+from threading import Thread
+
 import ipywidgets as ipw
 
+from aiida import orm
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
 from aiidalab_qe.app.utils import get_entry_items
 from aiidalab_qe.common.code import PluginCodes, PwCodeModel
@@ -18,7 +21,9 @@ from aiidalab_qe.common.panel import (
 )
 from aiidalab_qe.common.setup_codes import QESetupWidget
 from aiidalab_qe.common.widgets import LinkButton
-from aiidalab_qe.common.wizard import QeConfirmableDependentWizardStep
+from aiidalab_qe.common.wizard import ConfirmableDependentWizardStep
+from aiidalab_qe.utils import debugger
+from aiidalab_widgets_base import LoadingWidget
 
 from .global_settings import GlobalResourceSettingsModel, GlobalResourceSettingsPanel
 from .model import SubmissionStepModel
@@ -26,7 +31,8 @@ from .model import SubmissionStepModel
 DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
 
-class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
+@debugger
+class SubmissionStep(ConfirmableDependentWizardStep[SubmissionStepModel]):
     missing_information_warning = "Missing input structure and/or configuration parameters. Please set them first."
 
     def __init__(self, model: SubmissionStepModel, auto_setup=True, **kwargs):
@@ -40,8 +46,11 @@ class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
             **kwargs,
         )
 
+        self._default_user_email = orm.User.collection.get_default().email
+
         global_resources_model = GlobalResourceSettingsModel(
-            default_codes=DEFAULT["codes"]
+            default_codes=DEFAULT["codes"],
+            default_user_email=self._default_user_email,
         )
         self.global_resources = GlobalResourceSettingsPanel(
             model=global_resources_model
@@ -76,10 +85,22 @@ class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
             self._on_process_node_change,
             "process_node",
         )
+        self._model.observe(
+            self._on_fetched_resources_change,
+            "fetched_resources",
+        )
 
         self.settings = {
             "global": self.global_resources,
         }
+
+        self.codes: PluginCodes = {
+            "dft": {
+                "pw": PwCodeModel(),
+            },
+        }
+
+        Thread(target=self._fetch_plugin_resource_settings).start()
 
         self._set_up_qe(auto_setup)
 
@@ -133,6 +154,12 @@ class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
             "selected_index",
         )
 
+        self.tab_container = ipw.VBox(
+            children=[
+                LoadingWidget(message="Loading resource panels"),
+            ]
+        )
+
         self.content.children = [
             InAppGuide(identifier="submission-step"),
             ipw.HTML("""
@@ -153,7 +180,7 @@ class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
                 ],
                 layout=ipw.Layout(grid_gap="5px"),
             ),
-            self.tabs,
+            self.tab_container,
             ipw.HTML("""
                 <div style="line-height: 140%; padding-top: 0px; padding-bottom: 5px">
                     <h4 style="margin-bottom: 5px;">Workflow label and description</h4>
@@ -177,8 +204,8 @@ class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
         ]
 
     def _post_render(self):
-        self._fetch_plugin_resource_settings()
         self._update_tabs()
+        self.tab_container.children = [self.tabs]
 
     def reset(self):
         self._model.reset()
@@ -217,6 +244,10 @@ class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
         if self._model.process_node:
             self._model.process_label = self._model.process_node.label
             self._model.process_description = self._model.process_node.description
+
+    def _on_fetched_resources_change(self, _):
+        self.global_resources.build_global_codes(self.codes)
+        self._update_tabs()
 
     def _set_up_qe(self, auto_setup):
         self.qe_setup = QESetupWidget(auto_start=False)
@@ -261,18 +292,14 @@ class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
 
     def _fetch_plugin_resource_settings(self):
         entries = get_entry_items("aiidalab_qe.properties", "resources")
-        codes: PluginCodes = {
-            "dft": {
-                "pw": PwCodeModel(),
-            },
-        }
         for identifier, resources in entries.items():
             for key in ("panel", "model"):
                 if key not in resources:
                     raise ValueError(f"Entry {identifier} is missing the '{key}' key")
 
             model: PluginResourceSettingsModel = resources["model"](
-                default_codes=DEFAULT["codes"]
+                default_codes=DEFAULT["codes"],
+                default_user_email=self._default_user_email,
             )
             model.observe(
                 self._on_plugin_overrides_change,
@@ -291,6 +318,6 @@ class SubmissionStep(QeConfirmableDependentWizardStep[SubmissionStepModel]):
             panel: PluginResourceSettingsPanel = resources["panel"](model=model)
             self.settings[identifier] = panel
 
-            codes[identifier] = dict(model.get_models())
+            self.codes[identifier] = dict(model.get_models())
 
-        self.global_resources.build_global_codes(codes)
+        self._model.fetched_resources = True

@@ -5,6 +5,8 @@ Authors: AiiDAlab team
 
 from __future__ import annotations
 
+from threading import Thread
+
 import ipywidgets as ipw
 
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
@@ -17,7 +19,8 @@ from aiidalab_qe.app.utils.plugin_manager import (
 from aiidalab_qe.common.infobox import InAppGuide
 from aiidalab_qe.common.panel import ConfigurationSettingsPanel, PanelModel
 from aiidalab_qe.common.widgets import LinkButton
-from aiidalab_qe.common.wizard import QeConfirmableDependentWizardStep
+from aiidalab_qe.common.wizard import ConfirmableDependentWizardStep
+from aiidalab_qe.utils import debugger
 
 from .advanced import (
     AdvancedConfigurationSettingsModel,
@@ -29,7 +32,8 @@ from .model import ConfigurationStepModel
 DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
 
-class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]):
+@debugger
+class ConfigurationStep(ConfirmableDependentWizardStep[ConfigurationStepModel]):
     missing_information_warning = "Missing input structure. Please set it first."
 
     def __init__(self, model: ConfigurationStepModel, **kwargs):
@@ -63,11 +67,25 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
             self._on_structure_change,
             "structure_uuid",
         )
+        self._model.observe(
+            self._on_installed_properties_fetched,
+            "installed_properties_fetched",
+        )
+        self._model.observe(
+            self._on_available_properties_fetched,
+            "available_properties_fetched",
+        )
 
         self.settings = {
             "workchain": self.workchain_settings,
             "advanced": self.advanced_settings,
         }
+
+        self.installed_properties = []
+        self.available_properties = []
+
+        Thread(target=self._fetch_plugin_calculation_settings).start()
+        Thread(target=self._fetch_available_properties).start()
 
     def _render(self):
         super()._render()
@@ -104,15 +122,16 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
             tooltip="Browse and install additional plugins from the Plugin Store",
         )
 
-        self.installed_properties = ipw.VBox()
-        self.available_properties = ipw.HTML()
+        self.installed_properties_box = ipw.VBox(children=self.installed_properties)
+
+        self.available_properties_list = ipw.HTML()
 
         self.sub_steps = ipw.Accordion(
             children=[
                 ipw.VBox(
                     children=[
                         InAppGuide(identifier="properties-selection"),
-                        self.installed_properties,
+                        self.installed_properties_box,
                         ipw.HTML("<hr>"),
                         ipw.HTML(
                             value="""
@@ -129,7 +148,7 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
                             layout=ipw.Layout(margin="10px 0px"),
                         ),
                         self.install_new_plugin_button,
-                        self.available_properties,
+                        self.available_properties_list,
                     ]
                 ),
                 ipw.VBox(
@@ -163,8 +182,7 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
         ]
 
     def _post_render(self):
-        self._fetch_plugin_calculation_settings()
-        self._fetch_available_properties()
+        self._set_available_properties()
         self._update_tabs()
 
     def reset(self):
@@ -184,6 +202,23 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
         self._model.update()
         self.reset()
 
+    def _on_installed_properties_fetched(self, _):
+        if not self.rendered:
+            return
+        self.installed_properties_box.children = self.installed_properties
+
+    def _on_available_properties_fetched(self, _):
+        if not self.rendered:
+            return
+        self._set_available_properties()
+
+    def _set_available_properties(self):
+        self.available_properties_list.value = f"""
+            <ul style="margin-top: 8px">
+                {"".join(f"<li>{title}</li>" for title in self.available_properties)}
+            </ul>
+        """
+
     def _update_tabs(self):
         children = []
         titles = []
@@ -202,7 +237,7 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
     def _fetch_plugin_calculation_settings(self):
         outlines = get_entry_items("aiidalab_qe.properties", "outline")
         entries = get_entry_items("aiidalab_qe.properties", "configuration")
-        installed_properties = []
+        self.installed_properties_box = []
         for identifier, configuration in entries.items():
             for key in ("panel", "model"):
                 if key not in configuration:
@@ -240,7 +275,7 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
                 "include",
             )
 
-            installed_properties.append(
+            self.installed_properties.append(
                 ipw.HBox(
                     children=[
                         outline,
@@ -249,15 +284,15 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
                 )
             )
 
-            self.installed_properties.children = installed_properties
-
             panel: ConfigurationSettingsPanel = configuration["panel"](model=model)
             self.settings[identifier] = panel
+
+        self._model.installed_properties_fetched = True
 
     def _fetch_available_properties(self, plugin_config_source=None):
         plugin_config_source = plugin_config_source or DEFAULT_PLUGIN_CONFIG_SOURCE
         plugin_manager = PluginManager(plugin_config_source)
-        available_properties = []
+
         for plugin_name, plugin_data in plugin_manager.data.items():
             if (
                 plugin_data.get("category", "calculation").lower() != "calculation"
@@ -266,10 +301,6 @@ class ConfigurationStep(QeConfirmableDependentWizardStep[ConfigurationStepModel]
 
             is_installed = is_package_installed(plugin_name)
             if not is_installed:
-                available_properties.append(plugin_data["title"])
+                self.available_properties.append(plugin_data["title"])
 
-        self.available_properties.value = f"""
-            <ul style="margin-top: 8px">
-                {"".join(f"<li>{title}</li>" for title in available_properties)}
-            </ul>
-        """
+        self._model.available_properties_fetched = True

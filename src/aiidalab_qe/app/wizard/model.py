@@ -9,10 +9,12 @@ from aiidalab_qe.app.structure import StructureStepModel
 from aiidalab_qe.app.submission import SubmissionStepModel
 from aiidalab_qe.common.mixins import HasModels
 from aiidalab_qe.common.mvc import Model
-from aiidalab_qe.common.wizard import QeWizardStepModel, State
+from aiidalab_qe.common.wizard import WizardStepModel, State
+from aiidalab_qe.utils import debugger
 
 
-class WizardModel(Model, HasModels[QeWizardStepModel]):
+@debugger
+class WizardModel(Model, HasModels[WizardStepModel]):
     preloaded_state = tl.Dict(None, allow_none=True)
     selected_index = tl.Int(None, allow_none=True)
     loading_process = tl.Bool(False)

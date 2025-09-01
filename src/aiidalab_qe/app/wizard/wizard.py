@@ -6,14 +6,12 @@ from aiidalab_qe.app.configuration import ConfigurationStep, ConfigurationStepMo
 from aiidalab_qe.app.result import ResultsStep, ResultsStepModel
 from aiidalab_qe.app.structure import StructureSelectionStep, StructureStepModel
 from aiidalab_qe.app.submission import SubmissionStep, SubmissionStepModel
-from aiidalab_qe.common.infobox import InAppGuide
-from aiidalab_qe.common.wizard import QeWizardStep, State
-from aiidalab_widgets_base import LoadingWidget
+from aiidalab_qe.common.wizard import WizardStep, State
 
 from .model import WizardModel
 
 
-class Wizard(ipw.VBox):
+class Wizard(ipw.Accordion):
     """The main widget that combines all the application steps together."""
 
     ICONS = {
@@ -39,12 +37,13 @@ class Wizard(ipw.VBox):
         log_widget: ipw.Output | None = None,
         **kwargs,
     ):
-        super().__init__(
-            children=[LoadingWidget("Loading the app")],
-            **kwargs,
-        )
+        super().__init__(**kwargs)
 
         self._model = model
+        ipw.link(
+            (self._model, "selected_index"),
+            (self, "selected_index"),
+        )
 
         self.structure_model = StructureStepModel(auto_advance=True)
         self.structure_step = StructureSelectionStep(
@@ -83,6 +82,17 @@ class Wizard(ipw.VBox):
             (self.results_model, "previous_step_state"),
         )
 
+        for step_model in (
+            self.structure_model,
+            self.configure_model,
+            self.submit_model,
+            self.results_model,
+        ):
+            step_model.observe(
+                self._on_state_change,
+                "state",
+            )
+
         self.structure_model.observe(
             self._on_structure_confirmation_change,
             "confirmed",
@@ -96,17 +106,6 @@ class Wizard(ipw.VBox):
             "confirmed",
         )
 
-        for step_model in (
-            self.structure_model,
-            self.configure_model,
-            self.submit_model,
-            self.results_model,
-        ):
-            step_model.observe(
-                self._on_state_change,
-                "state",
-            )
-
         self._model.observe(
             self._on_preloaded_state_change,
             "preloaded_state",
@@ -114,10 +113,6 @@ class Wizard(ipw.VBox):
         self._model.observe(
             self._on_step_change,
             "selected_index",
-        )
-        self._model.observe(
-            self._on_loading_process_change,
-            "loading_process",
         )
 
         self.rendered = False
@@ -128,75 +123,45 @@ class Wizard(ipw.VBox):
         if self.rendered:
             return
 
-        self.accordion = ipw.Accordion(
-            children=[
-                self.structure_step,
-                self.configure_step,
-                self.submit_step,
-                self.results_step,
-            ],
-        )
-        self._update_titles()
-        ipw.link(
-            (self._model, "selected_index"),
-            (self.accordion, "selected_index"),
-        )
-
-        self._process_loading_message = LoadingWidget(
-            message="Loading process",
-            layout={"display": "none"},
-        )
-
         self.children = [
-            InAppGuide(identifier="guide-header"),
-            self._process_loading_message,
-            self.accordion,
-            InAppGuide(identifier="post-guide"),
+            self.structure_step,
+            self.configure_step,
+            self.submit_step,
+            self.results_step,
         ]
+        self._update_titles()
 
         self.rendered = True
-
-        self.structure_model.state = State.READY
 
     def _on_preloaded_state_change(self, change: dict):
         self._model.preload_from_state(change["new"] or {})
 
-    def _on_loading_process_change(self, change: dict):
-        if change["new"]:
-            self._show_process_loading_message()
-        else:
-            self._hide_process_loading_message()
-
     def _on_state_change(self, _=None):
         self._update_titles()
-        self._model.auto_advance()
 
     def _on_step_change(self, change: dict):
         if (step_index := change["new"]) is not None:
             self._render_step(step_index)
 
     def _on_structure_confirmation_change(self, _):
+        self._model.auto_advance()
         self._model.update_configuration_step()
 
     def _on_configuration_confirmation_change(self, _):
+        self._model.auto_advance()
         self._model.update_submission_step()
 
     def _on_submission(self, _):
+        self._model.auto_advance()
         self._model.update_results_step()
         self._model.lock_app()  # TODO .lock() might be enough - check!
 
     def _render_step(self, step_index: int):
-        step: QeWizardStep = self.accordion.children[step_index]  # type: ignore
+        step: WizardStep = self.children[step_index]  # type: ignore
         step.render()
-
-    def _show_process_loading_message(self):
-        self._process_loading_message.layout.display = "flex"
-
-    def _hide_process_loading_message(self):
-        self._process_loading_message.layout.display = "none"
 
     def _update_titles(self):
         for i, (step_id, title) in enumerate(self.TITLES.items()):
             step_model = self._model.get_model(step_id)
             icon = self.ICONS.get(step_model.state)
-            self.accordion.set_title(i, f"{icon} Step {i + 1}: {title}")
+            self.set_title(i, f"{icon} Step {i + 1}: {title}")

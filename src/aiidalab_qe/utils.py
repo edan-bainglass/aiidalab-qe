@@ -1,7 +1,71 @@
+import inspect
 import typing as t
+from functools import wraps
+from time import monotonic
 
 from aiida import orm
 from aiida.common.exceptions import NotExistent
+
+DEBUG = False
+TIME0 = monotonic()
+
+
+def make_debugger(debug: bool):
+    """Factory that returns a debug wrapper with the given enabled flag."""
+
+    def _debugger(func):
+        @wraps(func)
+        def decorator(*args, **kwargs):
+            if debug:
+                self = args[0] if args else None
+                timestamp = round(monotonic() - TIME0, 3)
+                who = self.__class__.__name__ if self is not None else "<no-self>"
+                print(f"{who}.{func.__name__} : {timestamp}")
+            return func(*args, **kwargs)
+
+        return decorator
+
+    return _debugger
+
+
+def debugger(_cls=None, *, debug: bool = DEBUG, include_private: bool = False):
+    """Debugging decorator. Can be used at class or method level.
+
+    Examples
+    --------
+    >>> @debugger
+    >>> class MyClass:
+    >>>     def method1(self):
+    >>>         pass
+    >>>     def method2(self):
+    >>>         pass
+    >>>
+    >>> MyClass.method1 : <elapsed time since app start>
+    >>> MyClass.method2 : <elapsed time since app start>
+    >>>
+    >>> class MyClass:
+    >>>     def method1(self):
+    >>>         pass
+    >>>     @debugger
+    >>>     def method2(self):
+    >>>         pass
+    >>>
+    >>> MyClass.method2 : <elapsed time since app start>
+    """
+
+    def decorator(cls):
+        _debugger = make_debugger(debug)
+        for name, attr in list(cls.__dict__.items()):
+            if not include_private and name.startswith("_"):
+                continue
+            if inspect.isfunction(attr):
+                setattr(cls, name, _debugger(attr))
+        return cls
+
+    if _cls is not None:
+        return decorator(_cls)
+
+    return decorator
 
 
 def generate_alert(alert_type: str, message: str, class_: str = "", style_: str = ""):

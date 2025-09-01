@@ -9,7 +9,11 @@ import ipywidgets as ipw
 from IPython.display import display
 
 from aiidalab_qe.app.static import styles
-from aiidalab_qe.app.wrapper import AppWrapperContoller, AppWrapperModel, AppWrapperView
+from aiidalab_qe.app.wrapper import (
+    AppWrapperController,
+    AppWrapperModel,
+    AppWrapperView,
+)
 from aiidalab_widgets_base.bug_report import (
     install_create_github_issue_exception_handler,
 )
@@ -71,7 +75,7 @@ class QeApp:
             )
 
         # setup UI controls
-        self.controller = AppWrapperContoller(self.model, self.view)
+        self.controller = AppWrapperController(self.model, self.view)
         self.controller.enable_toggles()
 
     def _load_styles(self):

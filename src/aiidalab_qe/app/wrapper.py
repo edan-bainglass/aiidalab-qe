@@ -17,8 +17,9 @@ from aiidalab_qe.app.static import images as images_folder
 from aiidalab_qe.app.static import templates
 from aiidalab_qe.app.wizard import Wizard, WizardModel
 from aiidalab_qe.common.guide_manager import guide_manager
-from aiidalab_qe.common.infobox import InfoBox
+from aiidalab_qe.common.infobox import InAppGuide, InfoBox
 from aiidalab_qe.common.widgets import LinkButton
+from aiidalab_qe.utils import debugger
 from aiidalab_qe.version import __version__
 from aiidalab_widgets_base import LoadingWidget
 
@@ -44,7 +45,8 @@ def without_triggering(toggle: str):
     return decorator
 
 
-class AppWrapperContoller:
+@debugger
+class AppWrapperController:
     """An MVC controller for `AppWrapper`."""
 
     def __init__(
@@ -63,6 +65,7 @@ class AppWrapperContoller:
         """
         self._model = model
         self._view = view
+        self._wizard_model = WizardModel()
         self._set_event_handlers()
 
     def enable_toggles(self) -> None:
@@ -72,17 +75,16 @@ class AppWrapperContoller:
 
     def load_app(self, auto_setup=True, log_widget=None) -> None:
         """Initialize the WizardApp and integrate the app into the main view."""
-        model = WizardModel()
-        self.app = Wizard(model, auto_setup, log_widget)
-        self._view.main.children = [self.app]
+        _ = orm.User.collection.get_default().email  # TODO why does this work?
+        self.wizard = Wizard(self._wizard_model, auto_setup, log_widget)
+        self._view.app_container.children = [self.wizard]
         state = {"process_identifier": self._model.process_identifier}
         if self._model.process_identifier:
             state |= self._model.get_state_from_process()
         if CURRENT_STATE_PATH.exists():
-            # TODO how to best guarantee the state was already written by this point?
             state |= json.loads(CURRENT_STATE_PATH.read_text())
             CURRENT_STATE_PATH.unlink(missing_ok=True)
-        model.preloaded_state = state
+        self._wizard_model.preloaded_state = state
         self._model.loaded = True
 
     @without_triggering("about_toggle")
@@ -126,9 +128,9 @@ class AppWrapperContoller:
         if not self._model.loaded:
             return
         payload = {
-            "structure_state": self.app.structure_model.get_model_state(),
-            "configuration_state": self.app.configure_model.get_model_state(),
-            "resources_state": self.app.submit_model.get_model_state(),
+            "structure_state": self.wizard.structure_model.get_model_state(),
+            "configuration_state": self.wizard.configure_model.get_model_state(),
+            "resources_state": self.wizard.submit_model.get_model_state(),
         }
         CURRENT_STATE_PATH.write_text(json.dumps(payload))
 
@@ -157,24 +159,30 @@ class AppWrapperContoller:
 
         self._view.duplicate_workflow_link.on_click(self._on_duplicate_workflow_click)
 
-        ipw.dlink(
+        tl.dlink(
             (self._model, "guide_category_options"),
             (self._view.guide_category_selection, "options"),
         )
-        ipw.link(
+        tl.link(
             (self._model, "selected_guide_category"),
             (self._view.guide_category_selection, "value"),
         )
-        ipw.dlink(
+        tl.dlink(
             (self._model, "guide_options"),
             (self._view.guide_selection, "options"),
         )
-        ipw.link(
+        tl.link(
             (self._model, "selected_guide"),
             (self._view.guide_selection, "value"),
         )
+        ipw.dlink(
+            (self._wizard_model, "loading_process"),
+            (self._view.process_loading_message.layout, "display"),
+            lambda loading_process: "flex" if loading_process else "none",
+        )
 
 
+@debugger
 class AppWrapperModel(tl.HasTraits):
     """An MVC model for `AppWrapper`."""
 
@@ -223,6 +231,7 @@ class AppWrapperModel(tl.HasTraits):
         }
 
 
+@debugger
 class AppWrapperView(ipw.VBox):
     """An MVC view for `AppWrapper`."""
 
@@ -346,7 +355,12 @@ class AppWrapperView(ipw.VBox):
         )
         header.add_class("app-header")
 
-        self.main = ipw.VBox(children=[LoadingWidget("Loading the app")])
+        self.process_loading_message = LoadingWidget(
+            message="Loading process",
+            layout={"display": "none"},
+        )
+
+        self.app_container = ipw.VBox(children=[LoadingWidget("Loading the app")])
 
         current_year = datetime.now().year
         footer = ipw.HTML(f"""
@@ -361,7 +375,10 @@ class AppWrapperView(ipw.VBox):
             children=[
                 self.output,
                 header,
-                self.main,
+                InAppGuide(identifier="guide-header"),
+                self.process_loading_message,
+                self.app_container,
+                InAppGuide(identifier="post-guide"),
                 footer,
             ],
         )

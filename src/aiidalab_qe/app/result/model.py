@@ -8,13 +8,13 @@ from aiida import orm
 from aiida.engine import ProcessState, processes
 from aiidalab_qe.common.mixins import HasModels, HasProcess
 from aiidalab_qe.common.process import STATE_ICONS
-from aiidalab_qe.common.wizard import QeDependentWizardStepModel, State
+from aiidalab_qe.common.wizard import DependentWizardStepModel, State
 
 from .components import ResultsComponentModel
 
 
 class ResultsStepModel(
-    QeDependentWizardStepModel,
+    DependentWizardStepModel,
     HasModels[ResultsComponentModel],
     HasProcess,
 ):
