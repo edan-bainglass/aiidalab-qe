@@ -94,12 +94,6 @@ class SubmissionStep(ConfirmableDependentWizardStep[SubmissionStepModel]):
             "global": self.global_resources,
         }
 
-        self.codes: PluginCodes = {
-            "dft": {
-                "pw": PwCodeModel(),
-            },
-        }
-
         Thread(target=self._fetch_plugin_resource_settings).start()
 
         self._set_up_qe(auto_setup)
@@ -246,7 +240,6 @@ class SubmissionStep(ConfirmableDependentWizardStep[SubmissionStepModel]):
             self._model.process_description = self._model.process_node.description
 
     def _on_fetched_resources_change(self, _):
-        self.global_resources.build_global_codes(self.codes)
         self._update_tabs()
 
     def _set_up_qe(self, auto_setup):
@@ -292,6 +285,11 @@ class SubmissionStep(ConfirmableDependentWizardStep[SubmissionStepModel]):
 
     def _fetch_plugin_resource_settings(self):
         entries = get_entry_items("aiidalab_qe.properties", "resources")
+        codes: PluginCodes = {
+            "dft": {
+                "pw": PwCodeModel(),
+            },
+        }
         for identifier, resources in entries.items():
             for key in ("panel", "model"):
                 if key not in resources:
@@ -318,6 +316,8 @@ class SubmissionStep(ConfirmableDependentWizardStep[SubmissionStepModel]):
             panel: PluginResourceSettingsPanel = resources["panel"](model=model)
             self.settings[identifier] = panel
 
-            self.codes[identifier] = dict(model.get_models())
+            codes[identifier] = dict(model.get_models())
+
+            self.global_resources.build_global_codes(codes)
 
         self._model.fetched_resources = True

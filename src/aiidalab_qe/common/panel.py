@@ -258,9 +258,6 @@ class ResourceSettingsPanel(Panel[RSM]):
     def _toggle_code(self, code_model: CodeModel):
         if not self.rendered:
             return
-        if not code_model.is_rendered:
-            loading_message = LoadingWidget(f"Loading {code_model.name} code")
-            self.code_widgets_container.children += (loading_message,)
         if code_model.name not in self.code_widgets:
             code_widget = code_model.code_widget_class(
                 description=code_model.description,
@@ -270,6 +267,8 @@ class ResourceSettingsPanel(Panel[RSM]):
         else:
             code_widget = self.code_widgets[code_model.name]
         if not code_model.is_rendered:
+            loading_message = LoadingWidget(f"Loading {code_model.name} code")
+            self.code_widgets_container.children += (loading_message,)
             code_widget.observe(
                 code_widget.update_resources,
                 "value",
