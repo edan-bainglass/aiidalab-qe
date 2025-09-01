@@ -23,7 +23,7 @@ from aiidalab_qe.utils import debugger
 from aiidalab_qe.version import __version__
 from aiidalab_widgets_base import LoadingWidget
 
-CURRENT_STATE_PATH = Path("/tmp/current_state.json")
+PREVIOUS_STATE_PATH = Path("/tmp/previous_state.json")
 
 
 def without_triggering(toggle: str):
@@ -32,7 +32,7 @@ def without_triggering(toggle: str):
     def decorator(func):
         def wrapper(self, change: dict):
             """Toggle off other button without triggering its callback."""
-            view: AppWrapperView = self._view
+            view: AppView = self._view
             button: ipw.ToggleButton = getattr(view, toggle)
             callback = getattr(self, f"_on_{toggle}")
             button.unobserve(callback, "value")
@@ -46,13 +46,11 @@ def without_triggering(toggle: str):
 
 
 @debugger
-class AppWrapperController:
-    """An MVC controller for `AppWrapper`."""
-
+class AppController:
     def __init__(
         self,
-        model: AppWrapperModel,
-        view: AppWrapperView,
+        model: AppModel,
+        view: AppView,
     ) -> None:
         """`AppWrapperController` constructor.
 
@@ -81,9 +79,9 @@ class AppWrapperController:
         state = {"process_identifier": self._model.process_identifier}
         if self._model.process_identifier:
             state |= self._model.get_state_from_process()
-        if CURRENT_STATE_PATH.exists():
-            state |= json.loads(CURRENT_STATE_PATH.read_text())
-            CURRENT_STATE_PATH.unlink(missing_ok=True)
+        if PREVIOUS_STATE_PATH.exists():
+            state |= json.loads(PREVIOUS_STATE_PATH.read_text())
+            PREVIOUS_STATE_PATH.unlink(missing_ok=True)
         self._wizard_model.preloaded_state = state
         self._model.loaded = True
 
@@ -132,7 +130,7 @@ class AppWrapperController:
             "configuration_state": self.wizard.configure_model.get_model_state(),
             "resources_state": self.wizard.submit_model.get_model_state(),
         }
-        CURRENT_STATE_PATH.write_text(json.dumps(payload))
+        PREVIOUS_STATE_PATH.write_text(json.dumps(payload))
 
     def _set_event_handlers(self) -> None:
         """Set up event handlers."""
@@ -183,9 +181,7 @@ class AppWrapperController:
 
 
 @debugger
-class AppWrapperModel(tl.HasTraits):
-    """An MVC model for `AppWrapper`."""
-
+class AppModel(tl.HasTraits):
     guide_category_options = tl.List(
         ["No guides", *guide_manager.get_guide_categories()]
     )
@@ -232,9 +228,7 @@ class AppWrapperModel(tl.HasTraits):
 
 
 @debugger
-class AppWrapperView(ipw.VBox):
-    """An MVC view for `AppWrapper`."""
-
+class AppView(ipw.VBox):
     def __init__(self) -> None:
         """`AppWrapperView` constructor."""
 

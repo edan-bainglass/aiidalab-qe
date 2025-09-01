@@ -9,15 +9,12 @@ import ipywidgets as ipw
 from IPython.display import display
 
 from aiidalab_qe.app.static import styles
-from aiidalab_qe.app.wrapper import (
-    AppWrapperController,
-    AppWrapperModel,
-    AppWrapperView,
-)
 from aiidalab_widgets_base.bug_report import (
     install_create_github_issue_exception_handler,
 )
 from aiidalab_widgets_base.utils.loaders import load_css
+
+from .app import AppController, AppModel, AppView
 
 DEFAULT_BUG_REPORT_URL = "https://github.com/aiidalab/aiidalab-qe/issues/new"
 
@@ -38,8 +35,8 @@ class QeApp:
         self._load_styles()
 
         # Initialize MVC components
-        self.model = AppWrapperModel(process_identifier=process)
-        self.view = AppWrapperView()
+        self.model = AppModel(process_identifier=process)
+        self.view = AppView()
         display(self.view)
 
         if show_log:
@@ -75,7 +72,7 @@ class QeApp:
             )
 
         # setup UI controls
-        self.controller = AppWrapperController(self.model, self.view)
+        self.controller = AppController(self.model, self.view)
         self.controller.enable_toggles()
 
     def _load_styles(self):
