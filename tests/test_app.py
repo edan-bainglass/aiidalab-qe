@@ -19,7 +19,7 @@ class TestApp:
             run_pdos=False,
             functional="PBE",
         )
-        self.model.process_identifier = workchain.node.pk
+        self.model.process_uuid = workchain.node.pk
         self.controller.load_app()
         wizard = self.controller.wizard
         assert wizard.configure_model.relax_type == "positions"

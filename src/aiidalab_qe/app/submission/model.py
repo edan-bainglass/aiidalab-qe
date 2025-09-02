@@ -60,6 +60,7 @@ class SubmissionStepModel(
             self._submit()
 
     def update(self):
+        self.update_blockers()
         for _, model in self.get_models():
             model.update()
 
@@ -113,9 +114,9 @@ class SubmissionStepModel(
         if not self.process_uuid:
             return
         try:
-            process_node = orm.load_node(self.process_uuid)
-            self.process_label = process_node.label
-            self.process_description = process_node.description
+            process = orm.load_node(self.process_uuid)
+            self.process_label = process.label
+            self.process_description = process.description
         except NotExistent:
             return
 
@@ -190,22 +191,20 @@ class SubmissionStepModel(
         builder = self._create_builder(parameters)
 
         with self.hold_trait_notifications():
-            process_node = submit(builder)
+            process = submit(builder)
 
-            process_node.label = self.process_label
-            process_node.description = self.process_description
+            process.label = self.process_label
+            process.description = self.process_description
             # since AiiDA data node may exist in the ui_parameters,
             # we serialize it to yaml
-            process_node.base.extras.set("ui_parameters", serialize(parameters))
+            process.base.extras.set("ui_parameters", serialize(parameters))
             # store the workchain name in extras, this will help to filter the workchain in the future
-            process_node.base.extras.set("workchain", parameters["workchain"])  # type: ignore
-            process_node.base.extras.set("structure", self.structure.get_formula())
-            self.process_uuid = process_node.uuid
+            process.base.extras.set("workchain", parameters["workchain"])  # type: ignore
+            process.base.extras.set("structure", self.structure.get_formula())
+            self.process_uuid = process.uuid
 
             display(
-                Javascript(
-                    f"window.history.pushState(null, '', '?pk={process_node.pk}');"
-                )
+                Javascript(f"window.history.pushState(null, '', '?pk={process.pk}');")
             )
 
     def _get_properties(self) -> list[str]:
@@ -237,6 +236,12 @@ class SubmissionStepModel(
         return builder
 
     def _check_blockers(self):
+        if not self.structure_uuid:
+            yield "No selected input structure"
+
+        if not self.input_parameters:
+            yield "No selected input parameters"
+
         if self.installing_qe:
             yield "Installing Quantum ESPRESSO codes..."
 

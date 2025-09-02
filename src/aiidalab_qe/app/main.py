@@ -34,7 +34,7 @@ class QeApp:
 
         self._load_styles()
 
-        self.model = AppModel(process_identifier=process)
+        self.model = AppModel()
         self.view = AppView()
         display(self.view)
 
@@ -72,7 +72,7 @@ class QeApp:
         self.controller = AppController(self.model, self.view)
         self.controller.enable_toggles()
 
-        if not self.model.validate_process():
+        if not self.model.validate_process(process):
             self.view.app_container.children = [
                 ipw.HTML(f"""
                     <div class="alert alert-danger" style="text-align: center">

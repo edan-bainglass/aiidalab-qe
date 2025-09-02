@@ -192,12 +192,12 @@ def test_pseudos_settings(generate_structure_data, generate_upf_data):
     pseudos.render()
 
     # Check uploaders
-    assert len(pseudos.setter_widget.children) == 2
+    assert len(pseudos.pseudos_list.children) == 2
 
     message = "{ecutwfc} | {ecutrho} | {functional} | {relativistic}"
 
     # Check Si uploader (Si.upf)
-    Si_uploader: PseudoPotentialUploader = pseudos.setter_widget.children[0]
+    Si_uploader: PseudoPotentialUploader = pseudos.pseudos_list.children[0]
     assert Si_uploader._model.kind_name == "Si"
     assert Si_uploader._model.kind_symbol == "Si"
     pseudo = orm.load_node(model.dictionary["Si"])
@@ -215,7 +215,7 @@ def test_pseudos_settings(generate_structure_data, generate_upf_data):
     )
 
     # Check O uploader (O.upf)
-    O_uploader: PseudoPotentialUploader = pseudos.setter_widget.children[1]
+    O_uploader: PseudoPotentialUploader = pseudos.pseudos_list.children[1]
     assert O_uploader._model.kind_name == "O"
     assert O_uploader._model.kind_symbol == "O"
     pseudo = orm.load_node(model.dictionary["O"])

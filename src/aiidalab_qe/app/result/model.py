@@ -29,13 +29,13 @@ class ResultsStepModel(
         self._update_process_remote_folder_state()
 
     def kill_process(self):
-        if process_node := self.fetch_process_node():
-            processes.control.kill_processes([process_node])
+        if self.process:
+            processes.control.kill_processes([self.process])
 
     def clean_remote_data(self):
-        if not (process_node := self.fetch_process_node()):
+        if not self.process:
             return
-        for called_descendant in process_node.called_descendants:
+        for called_descendant in self.process.called_descendants:
             if isinstance(called_descendant, orm.CalcJobNode):
                 with contextlib.suppress(Exception):
                     called_descendant.outputs.remote_folder._clean()
@@ -43,11 +43,11 @@ class ResultsStepModel(
 
     def update_state(self):
         super().update_state()
-        if not (process_node := self.fetch_process_node()):
+        if not self.process:
             self.state = State.INIT
             return
 
-        if process_state := process_node.process_state:
+        if process_state := self.process.process_state:
             status = self._get_process_status(process_state.value)
         else:
             status = "Unknown"
@@ -65,9 +65,9 @@ class ResultsStepModel(
             ProcessState.KILLED,
         ):
             self.state = State.FAIL
-        elif process_node.is_failed:
+        elif self.process.is_failed:
             self.state = State.FAIL
-        elif process_node.is_finished_ok:
+        elif self.process.is_finished_ok:
             self.state = State.SUCCESS
 
         self.process_info = self.STATUS_TEMPLATE.format(status)
@@ -77,11 +77,10 @@ class ResultsStepModel(
         self.process_info = ""
 
     def _update_process_remote_folder_state(self):
-        process_node = self.fetch_process_node()
-        if not (process_node and process_node.called_descendants):
+        if not (self.process and self.process.called_descendants):
             return
         cleaned = []
-        for called_descendant in process_node.called_descendants:
+        for called_descendant in self.process.called_descendants:
             if isinstance(called_descendant, orm.CalcJobNode):
                 with contextlib.suppress(Exception):
                     cleaned.append(called_descendant.outputs.remote_folder.is_empty)

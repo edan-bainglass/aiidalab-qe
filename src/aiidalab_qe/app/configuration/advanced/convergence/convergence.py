@@ -53,7 +53,9 @@ class ConvergenceConfigurationSettingsPanel(
         ipw.dlink(
             (self._model, "scf_conv_thr"),
             (scf_conv_thr_abs, "value"),
-            lambda value: f"{value * len(self._model.structure.sites):.5e}",
+            lambda value: f"{value * len(self._model.structure.sites):.5e}"
+            if self._model.structure
+            else "N/A",
         )
         scf_conv_thr_abs.add_class("convergence-label")
 
@@ -76,7 +78,9 @@ class ConvergenceConfigurationSettingsPanel(
         ipw.dlink(
             (self._model, "etot_conv_thr"),
             (etot_conv_thr_abs, "value"),
-            lambda value: f"{value * len(self._model.structure.sites):.5e}",
+            lambda value: f"{value * len(self._model.structure.sites):.5e}"
+            if self._model.structure
+            else "N/A",
         )
         etot_conv_thr_abs.add_class("convergence-label")
 

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import enum
-import os
 import typing as t
 
 import ipywidgets as ipw
 import traitlets as tl
 
-from aiidalab_qe.common.mixins import Confirmable, HasBlockers, HasModels
+from aiidalab_qe.common.decorators import debugger
+from aiidalab_qe.common.mixins import Confirmable, HasBlockers
 from aiidalab_qe.common.mvc import Model
-from aiidalab_qe.utils import debugger
 from aiidalab_widgets_base import LoadingWidget
 
 
@@ -36,7 +35,7 @@ class WizardStepModel(Model):
 
     @property
     def is_finished(self) -> bool:
-        return self.state in (State.SUCCESS, State.FAIL)
+        return self.state in {State.SUCCESS, State.FAIL}
 
     def update_state(self):
         pass
@@ -112,31 +111,6 @@ class ConfirmableWizardStepModel(
     def lock(self):
         super().lock()
         self.unobserve_all("confirmed")
-
-    def update_blockers(self):
-        blockers = list(self._check_blockers())
-        if isinstance(self, HasModels):
-            for _, model in self.get_models():
-                if isinstance(model, HasBlockers):
-                    blockers += model.blockers
-        self.blockers = blockers
-
-    def update_blocker_messages(self):
-        if self.is_blocked:
-            formatted = "\n".join(f"<li>{item}</li>" for item in self.blockers)
-            self.blocker_messages = f"""
-                <div class="alert alert-danger">
-                    <b>The step is blocked due to the following reason(s):</b>
-                    <ul>
-                        {formatted}
-                    </ul>
-                </div>
-            """
-        else:
-            self.blocker_messages = ""
-
-    def _check_blockers(self):
-        raise NotImplementedError
 
 
 CWSM = t.TypeVar("CWSM", bound=ConfirmableWizardStepModel)
@@ -234,44 +208,15 @@ DWSM = t.TypeVar("DWSM", bound=DependentWizardStepModel)
 
 @debugger
 class DependentWizardStep(WizardStep[DWSM]):
-    missing_information_warning = "Missing information"
-
     def __init__(self, model: DWSM, **kwargs):
         super().__init__(model, **kwargs)
-        self.previous_children = list(self.children)
-        self.warning_message = ipw.HTML(
-            f"""
-            <div class="alert alert-danger">
-                <b>Warning:</b> {self.missing_information_warning}
-            </div>
-        """
-        )
         self._model.observe(
             self._on_previous_step_state_change,
             "previous_step_state",
         )
 
-    def render(self):
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            super().render()
-            return
-        if self._model.is_ready:
-            self._hide_missing_information_warning()
-            if not self.rendered:
-                super().render()
-                self.previous_children = list(self.children)
-        else:
-            self._show_missing_information_warning()
-
     def _on_previous_step_state_change(self, _):
         self._model.update_state()
-
-    def _show_missing_information_warning(self):
-        self.children = [self.warning_message]
-        self.rendered = False
-
-    def _hide_missing_information_warning(self):
-        self.children = self.previous_children
 
 
 @debugger

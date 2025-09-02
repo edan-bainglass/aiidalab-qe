@@ -102,7 +102,7 @@ class SimplifiedProcessTree(ipw.VBox):
         )
         self.collapse_button.on_click(self._collapse_all)
 
-        root = self._model.fetch_process_node()
+        root = self._model.process
 
         self.trunk = WorkChainTreeNode(node=root, on_inspect=self._on_inspect)
         self.trunk.add_class("tree-trunk")

@@ -6,10 +6,10 @@ from aiidalab_qe.app.configuration import ConfigurationStepModel
 from aiidalab_qe.app.result import ResultsStepModel
 from aiidalab_qe.app.structure import StructureStepModel
 from aiidalab_qe.app.submission import SubmissionStepModel
+from aiidalab_qe.common.decorators import debugger
 from aiidalab_qe.common.mixins import HasModels
 from aiidalab_qe.common.mvc import Model
 from aiidalab_qe.common.wizard import State, WizardStepModel
-from aiidalab_qe.utils import debugger
 
 
 @debugger
@@ -48,8 +48,8 @@ class WizardModel(Model, HasModels[WizardStepModel]):
                     submission_model.set_model_state(resources_state)
                     step = 2
 
-                    if process_identifier := state.get("process_identifier"):
-                        submission_model.process_uuid = process_identifier
+                    if process_uuid := state.get("process_uuid"):
+                        submission_model.process_uuid = process_uuid
                         submission_model.confirm()
                         structure_model.lock()
                         configuration_model.lock()

@@ -14,10 +14,6 @@ from .model import ResultsStepModel
 
 
 class ResultsStep(DependentWizardStep[ResultsStepModel]):
-    missing_information_warning = (
-        "No available results. Did you submit or load a calculation?"
-    )
-
     def __init__(
         self,
         model: ResultsStepModel,
@@ -58,6 +54,9 @@ class ResultsStep(DependentWizardStep[ResultsStepModel]):
             self._on_state_change,
             "state",
         )
+
+    def reset(self):
+        self._model.reset()
 
     def _render(self):
         self.kill_button = ipw.Button(
@@ -119,8 +118,31 @@ class ResultsStep(DependentWizardStep[ResultsStepModel]):
             ],
         )
 
-        if self._model.has_process:
-            self._update_children()
+        loading_message = LoadingWidget(message="Loading results")
+
+        ipw.dlink(
+            (self._model, "process_uuid"),
+            (self, "children"),
+            lambda _: (
+                [
+                    InAppGuide(identifier="results-step"),
+                    self.process_info,
+                    ipw.HBox(
+                        children=[
+                            self.kill_button,
+                            self.clean_scratch_button,
+                        ],
+                        layout=ipw.Layout(margin="0 3px"),
+                    ),
+                    self.toggle_controls,
+                    self.container,
+                ]
+                if self._model.has_process
+                else [loading_message]
+            )
+            if self._model.is_ready
+            else [self._model.missing_process_warning],
+        )
 
     def _post_render(self):
         self._update_kill_button_layout()
@@ -128,7 +150,7 @@ class ResultsStep(DependentWizardStep[ResultsStepModel]):
 
         self.toggle_controls.value = (
             "Results"
-            if (process := self._model.fetch_process_node()) and process.is_finished_ok
+            if self._model.process and self._model.process.is_finished_ok
             else "Status"
         )
 
@@ -145,19 +167,15 @@ class ResultsStep(DependentWizardStep[ResultsStepModel]):
             (self.process_monitor, "value"),
         )
 
-    def reset(self):
-        self._model.reset()
-
     def _on_state_change(self, change):
         super()._on_state_change(change)
         self._update_controls()
 
     def _on_previous_step_state_change(self, _):
         if self._model.is_ready:
-            process_node = self._model.fetch_process_node()
             message = (
                 "Loading results"
-                if process_node and process_node.is_finished
+                if self._model.process and self._model.process.is_finished
                 else "Submitting calculation"
             )
             self.children = [LoadingWidget(message)]
@@ -167,8 +185,6 @@ class ResultsStep(DependentWizardStep[ResultsStepModel]):
         self._toggle_view(panel)
 
     def _on_process_change(self, _):
-        if self.rendered:
-            self._update_children()
         self._model.update()
         self._model.update_state()
         self._update_kill_button_layout()
@@ -182,22 +198,6 @@ class ResultsStep(DependentWizardStep[ResultsStepModel]):
         self._model.clean_remote_data()
         self._update_clean_scratch_button_layout()
 
-    def _update_children(self):
-        self.children = [
-            InAppGuide(identifier="results-step"),
-            self.process_info,
-            ipw.HBox(
-                children=[
-                    self.kill_button,
-                    self.clean_scratch_button,
-                ],
-                layout=ipw.Layout(margin="0 3px"),
-            ),
-            self.toggle_controls,
-            self.container,
-        ]
-        self.previous_children = list(self.children)
-
     def _toggle_view(self, panel: ResultsComponent):
         self.container.children = [panel]
         panel.render()
@@ -205,11 +205,10 @@ class ResultsStep(DependentWizardStep[ResultsStepModel]):
     def _update_kill_button_layout(self):
         if not self.rendered:
             return
-        process_node = self._model.fetch_process_node()
         if (
-            not process_node
-            or process_node.is_finished
-            or process_node.is_excepted
+            not self._model.process
+            or self._model.process.is_finished
+            or self._model.process.is_excepted
             or self._model.is_finished
         ):
             self.kill_button.layout.display = "none"
@@ -219,8 +218,7 @@ class ResultsStep(DependentWizardStep[ResultsStepModel]):
     def _update_clean_scratch_button_layout(self):
         if not self.rendered:
             return
-        process_node = self._model.fetch_process_node()
-        if process_node and process_node.is_terminated:
+        if self._model.process and self._model.process.is_terminated:
             self.clean_scratch_button.layout.display = "block"
         else:
             self.clean_scratch_button.layout.display = "none"

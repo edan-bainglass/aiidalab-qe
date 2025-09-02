@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import traitlets as tl
 
+from aiidalab_qe.common.decorators import debugger
 from aiidalab_qe.common.mixins import HasStructure
 from aiidalab_qe.common.wizard import ConfirmableWizardStepModel, State
-from aiidalab_qe.utils import debugger
 
 
 @debugger

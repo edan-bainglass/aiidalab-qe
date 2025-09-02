@@ -6,10 +6,10 @@ import traitlets as tl
 
 from aiida_quantumespresso.common.types import RelaxType
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
+from aiidalab_qe.common.decorators import debugger
 from aiidalab_qe.common.mixins import HasModels, HasStructure
 from aiidalab_qe.common.panel import PanelModel
 from aiidalab_qe.common.wizard import ConfirmableDependentWizardStepModel, State
-from aiidalab_qe.utils import debugger
 
 DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
@@ -97,6 +97,8 @@ class ConfigurationStepModel(
         self.relax_type_options = self._get_default("relax_type_options")
         self.relax_type = self._get_default_relax_type()
 
+        self.update_blockers()
+
     def get_model_state(self) -> dict:
         if not self.is_ready:
             return {}
@@ -172,6 +174,9 @@ class ConfigurationStepModel(
         )
 
     def _check_blockers(self):
+        if not self.has_structure:
+            yield "No selected input structure"
+            return
         for _, model in self.get_models():
             if model.is_blocked:
                 yield from model.blockers

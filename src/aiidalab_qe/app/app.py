@@ -16,10 +16,10 @@ from aiida.orm.utils.serialize import deserialize_unsafe
 from aiidalab_qe.app.static import images as images_folder
 from aiidalab_qe.app.static import templates
 from aiidalab_qe.app.wizard import Wizard, WizardModel
+from aiidalab_qe.common.decorators import debugger, per_thread_cache
 from aiidalab_qe.common.guide_manager import guide_manager
 from aiidalab_qe.common.infobox import InAppGuide, InfoBox
 from aiidalab_qe.common.widgets import LinkButton
-from aiidalab_qe.utils import debugger
 from aiidalab_qe.version import __version__
 from aiidalab_widgets_base import LoadingWidget
 
@@ -76,8 +76,8 @@ class AppController:
         _ = orm.User.collection.get_default().email  # TODO why does this work?
         self.wizard = Wizard(self._wizard_model, auto_setup, log_widget)
         self._view.app_container.children = [self.wizard]
-        state = {"process_identifier": self._model.process_identifier}
-        if self._model.process_identifier:
+        state = {"process_uuid": self._model.process_uuid}
+        if self._model.process_uuid:
             state |= self._model.get_state_from_process()
         if PREVIOUS_STATE_PATH.exists():
             state |= json.loads(PREVIOUS_STATE_PATH.read_text())
@@ -189,24 +189,21 @@ class AppModel(tl.HasTraits):
     guide_options = tl.List(tl.Unicode())
     selected_guide = tl.Unicode(None, allow_none=True)
 
-    process_identifier: int | str | None = None
+    process_uuid: str | None = None
     loaded = False
 
-    def __init__(self, process_identifier: str | None = None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.process_identifier = process_identifier
-
     @property
-    def process_node(self) -> orm.WorkChainNode:
-        return t.cast(orm.WorkChainNode, orm.load_node(self.process_identifier))
+    @per_thread_cache
+    def process(self) -> orm.WorkChainNode:
+        return t.cast(orm.WorkChainNode, orm.load_node(self.process_uuid))
 
-    def validate_process(self):
+    def validate_process(self, process_identifier: str | None = None) -> bool:
         """Validate the process identifier."""
-        if self.process_identifier:
+        if process_identifier:
             try:
-                process_node = self.process_node
-                assert isinstance(process_node, orm.WorkChainNode)
-                self.process_identifier = process_node.uuid
+                process = orm.load_node(process_identifier)
+                assert isinstance(process, orm.WorkChainNode)
+                self.process_uuid = process.uuid
             except Exception:
                 return False
         return True
@@ -217,10 +214,9 @@ class AppModel(tl.HasTraits):
         guide_manager.active_guide = active_guide
 
     def get_state_from_process(self) -> dict:
-        if not self.process_identifier:
+        if not self.process_uuid:
             return {}
-        process = self.process_node
-        parameters: dict = process.base.extras.get("ui_parameters", {})
+        parameters: dict = self.process.base.extras.get("ui_parameters", {})
         if parameters and isinstance(parameters, str):
             parameters = deserialize_unsafe(parameters)
         codes = parameters.pop("codes", {})
@@ -236,7 +232,7 @@ class AppModel(tl.HasTraits):
         # END BACKWARDS COMPATIBILITY
 
         return {
-            "structure_state": {"uuid": process.inputs.structure.uuid},
+            "structure_state": {"uuid": self.process.inputs.structure.uuid},
             "configuration_state": parameters,
             "resources_state": codes,
         }

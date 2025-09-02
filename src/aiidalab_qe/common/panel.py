@@ -132,11 +132,6 @@ class ConfigurationSettingsPanel(Panel[PM]):
         self._unsubscribe()
         if self._model.include:
             self.update(specific)
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            # Skip resetting to avoid having to inject a structure when testing
-            return
-        if isinstance(self._model, HasStructure) and not self._model.has_structure:
-            self._reset()
 
     def update(self, specific=""):
         """Updates the model if not yet updated.
@@ -157,11 +152,6 @@ class ConfigurationSettingsPanel(Panel[PM]):
         for link in self._links:
             link.unlink()
         self._links.clear()
-
-    def _reset(self):
-        """Resets the model to present defaults."""
-        self._model.updated = False
-        self._model.reset()
 
 
 class ResourceSettingsModel(PanelModel, HasModels[CodeModel]):
@@ -523,22 +513,20 @@ class ResultsModel(PanelModel, HasProcess):
         uuid = getattr(self, f"_{which}_process_uuid")
         label = getattr(self, f"_{which}_process_label")
         if not uuid:
-            root = self.fetch_process_node()
+            root = self.process
             child = next((c for c in root.called if c.process_label == label), None)
             uuid = child.uuid if child else None
         return orm.load_node(uuid) if uuid else None  # type: ignore
 
     def save_state(self):
         """Saves the current state of the model to the AiiDA database."""
-        node = self.fetch_process_node()
-        results = node.base.extras.get("results", {})
+        results = self.process.base.extras.get("results", {})
         results[self.identifier] = self.get_model_state()
-        node.base.extras.set("results", results)
+        self.process.base.extras.set("results", results)
 
     def load_state(self):
         """Loads the state of the model from the AiiDA database."""
-        node = self.fetch_process_node()
-        results = node.base.extras.get("results", {})
+        results = self.process.base.extras.get("results", {})
         if self.identifier in results:
             self.set_model_state(results[self.identifier])
 
@@ -557,7 +545,6 @@ class ResultsModel(PanelModel, HasProcess):
             </div>
         """
 
-    def _get_child_state_and_exit_message(self, which="this"):
         if not (
             (node := self.fetch_child_process_node(which))
             and hasattr(node, "process_state")

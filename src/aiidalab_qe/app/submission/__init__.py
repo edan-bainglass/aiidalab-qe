@@ -13,6 +13,7 @@ from aiida import orm
 from aiidalab_qe.app.parameters import DEFAULT_PARAMETERS
 from aiidalab_qe.app.utils import get_entry_items
 from aiidalab_qe.common.code import PluginCodes, PwCodeModel
+from aiidalab_qe.common.decorators import debugger
 from aiidalab_qe.common.infobox import InAppGuide
 from aiidalab_qe.common.panel import (
     PluginResourceSettingsModel,
@@ -22,7 +23,6 @@ from aiidalab_qe.common.panel import (
 from aiidalab_qe.common.setup_codes import QESetupWidget
 from aiidalab_qe.common.widgets import LinkButton
 from aiidalab_qe.common.wizard import ConfirmableDependentWizardStep
-from aiidalab_qe.utils import debugger
 from aiidalab_widgets_base import LoadingWidget
 
 from .global_settings import GlobalResourceSettingsModel, GlobalResourceSettingsPanel
@@ -33,8 +33,6 @@ DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
 @debugger
 class SubmissionStep(ConfirmableDependentWizardStep[SubmissionStepModel]):
-    missing_information_warning = "Missing input structure and/or configuration parameters. Please set them first."
-
     def __init__(self, model: SubmissionStepModel, auto_setup=True, **kwargs):
         super().__init__(
             model=model,
@@ -82,8 +80,8 @@ class SubmissionStep(ConfirmableDependentWizardStep[SubmissionStepModel]):
             "input_parameters",
         )
         self._model.observe(
-            self._on_process_node_change,
-            "process_node",
+            self._on_process_change,
+            "process_uuid",
         )
         self._model.observe(
             self._on_fetched_resources_change,
@@ -198,6 +196,7 @@ class SubmissionStep(ConfirmableDependentWizardStep[SubmissionStepModel]):
         ]
 
     def _post_render(self):
+        self._model.update()
         self._update_tabs()
         self.tab_container.children = [self.tabs]
 
@@ -234,7 +233,7 @@ class SubmissionStep(ConfirmableDependentWizardStep[SubmissionStepModel]):
         if self._model.qe_installed:
             self._model.update()
 
-    def _on_process_node_change(self, _):
+    def _on_process_change(self, _):
         self._model.update_process_metadata()
 
     def _on_fetched_resources_change(self, _):

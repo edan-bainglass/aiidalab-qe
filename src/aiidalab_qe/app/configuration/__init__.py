@@ -16,11 +16,11 @@ from aiidalab_qe.app.utils.plugin_manager import (
     PluginManager,
     is_package_installed,
 )
+from aiidalab_qe.common.decorators import debugger
 from aiidalab_qe.common.infobox import InAppGuide
 from aiidalab_qe.common.panel import ConfigurationSettingsPanel, PanelModel
 from aiidalab_qe.common.widgets import LinkButton
 from aiidalab_qe.common.wizard import ConfirmableDependentWizardStep
-from aiidalab_qe.utils import debugger
 
 from .advanced import (
     AdvancedConfigurationSettingsModel,
@@ -34,8 +34,6 @@ DEFAULT: dict = DEFAULT_PARAMETERS  # type: ignore
 
 @debugger
 class ConfigurationStep(ConfirmableDependentWizardStep[ConfigurationStepModel]):
-    missing_information_warning = "Missing input structure. Please set it first."
-
     def __init__(self, model: ConfigurationStepModel, **kwargs):
         super().__init__(
             model=model,
@@ -106,6 +104,15 @@ class ConfigurationStep(ConfirmableDependentWizardStep[ConfigurationStepModel]):
             (self.relax_type, "value"),
         )
 
+        self.relax_type_container = ipw.VBox()
+        ipw.dlink(
+            (self._model, "structure_uuid"),
+            (self.relax_type_container, "children"),
+            lambda _: [self.relax_type_help, self.relax_type]
+            if self._model.has_structure
+            else [self._model.missing_structure_warning],
+        )
+
         self.tabs = ipw.Tab(
             layout=ipw.Layout(min_height="250px"),
             selected_index=None,
@@ -171,8 +178,7 @@ class ConfigurationStep(ConfirmableDependentWizardStep[ConfigurationStepModel]):
                     <h4>Structure relaxation</h4>
                 </div>
             """),
-            self.relax_type_help,
-            self.relax_type,
+            self.relax_type_container,
             self.sub_steps,
         ]
 
@@ -200,7 +206,6 @@ class ConfigurationStep(ConfirmableDependentWizardStep[ConfigurationStepModel]):
 
     def _on_structure_change(self, _):
         self._model.update()
-        self.reset()
 
     def _on_installed_properties_fetched(self, _):
         if not self.rendered:

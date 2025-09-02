@@ -66,6 +66,7 @@ class PseudosConfigurationSettingsPanel(
             (self._model, "family_header"),
             (self.family_header, "value"),
         )
+        self._model.update_family_header()
 
         self.family_help = ipw.HTML()
         ipw.dlink(
@@ -93,7 +94,16 @@ class PseudosConfigurationSettingsPanel(
             (self.library, "value"),
         )
 
-        self.setter_widget = ipw.VBox()
+        self.pseudos_list = ipw.VBox()
+
+        self.pseudos_container = ipw.VBox()
+        ipw.dlink(
+            (self._model, "structure_uuid"),
+            (self.pseudos_container, "children"),
+            lambda _: [self.pseudos_list]
+            if self._model.has_structure
+            else [self._model.missing_structure_warning],
+        )
 
         self.ecutwfc = ipw.FloatText(
             description="Wavefunction",
@@ -190,7 +200,7 @@ class PseudosConfigurationSettingsPanel(
                     </ul>
                 </div>
             """),
-            self.setter_widget,
+            self.pseudos_container,
             ipw.HTML("<h4>Cutoffs</h4>"),
             ipw.HTML("""
                 <div style="line-height: 1.4;">
@@ -215,6 +225,15 @@ class PseudosConfigurationSettingsPanel(
 
         self.refresh(specific="widgets")
 
+    def update(self, specific=""):
+        if self._model.updated:
+            return
+        self._show_loading()
+        if not self._model.locked or (specific and specific != "widgets"):
+            self._model.update(specific)
+        self._build_pseudos_list()
+        self._model.updated = True
+
     def _on_structure_change(self, _):
         self.refresh(specific="structure")
 
@@ -231,6 +250,8 @@ class PseudosConfigurationSettingsPanel(
         self._model.update_blockers()
 
     def _on_functionals_change(self, _):
+        if not self._model.has_structure:
+            return
         self._model.functional = (
             self._model.functionals[0]  # type: ignore
             if len(set(self._model.functionals)) == 1
@@ -255,22 +276,11 @@ class PseudosConfigurationSettingsPanel(
             return
         self._warning_message.layout.display = "block" if change["new"] else "none"
 
-    def update(self, specific=""):
-        if self._model.updated:
-            return
-        self._show_loading()
-        if not self._model.locked or (specific and specific != "widgets"):
-            self._model.update(specific)
-        self._build_setter_widgets()
-        self._model.update_library_options()
-        self._model.update_family_header()
-        self._model.updated = True
-
     def _show_loading(self):
         if self.rendered:
-            self.setter_widget.children = [self.loading_message]
+            self.pseudos_list.children = [self.loading_message]
 
-    def _build_setter_widgets(self):
+    def _build_pseudos_list(self):
         if not self.rendered:
             return
 
@@ -331,6 +341,9 @@ class PseudosConfigurationSettingsPanel(
 
                 functional = model.pseudo.base.extras.get("functional", None)
                 functionals = [*self._model.functionals]
+
+                print(functionals, index)
+
                 functionals[index] = functional
                 # The following double-setting is done to force the blockers check,
                 # which now also bail early if the functionals are empty.
@@ -355,4 +368,4 @@ class PseudosConfigurationSettingsPanel(
 
             children.append(uploader)
 
-        self.setter_widget.children = children
+        self.pseudos_list.children = children

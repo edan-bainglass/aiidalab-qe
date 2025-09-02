@@ -16,11 +16,11 @@ from aiidalab_qe.common import (
     PeriodicityEditor,
     ShakeNBreakEditor,
 )
+from aiidalab_qe.common.decorators import debugger
 from aiidalab_qe.common.infobox import InAppGuide
 from aiidalab_qe.common.setup_pseudos import PseudosInstallWidget
 from aiidalab_qe.common.widgets import CategorizedStructureExamplesWidget
 from aiidalab_qe.common.wizard import ConfirmableWizardStep
-from aiidalab_qe.utils import debugger
 from aiidalab_widgets_base import (
     BasicCellEditor,
     BasicStructureEditor,

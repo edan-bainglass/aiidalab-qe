@@ -68,10 +68,16 @@ class HubbardConfigurationSettingsPanel(
 
         self.container = ipw.VBox()
 
-        self.children = [
-            self.activate_hubbard_checkbox,
-            self.container,
-        ]
+        ipw.dlink(
+            (self._model, "structure_uuid"),
+            (self, "children"),
+            lambda _: [
+                self.activate_hubbard_checkbox,
+                self.container,
+            ]
+            if self._model.has_structure
+            else [self._model.missing_structure_warning],
+        )
 
         self.rendered = True
 

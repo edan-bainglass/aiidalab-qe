@@ -81,9 +81,9 @@ class WorkChainSummary(ResultsComponent[WorkChainSummaryModel]):
         self.has_settings_report = True
 
     def _render_download_widget(self):
-        process_node = self._model.fetch_process_node()
-        if process_node and process_node.is_terminated:
-            output_download_widget = WorkChainOutputs(node=process_node)
+        process = self._model.process
+        if process and process.is_terminated:
+            output_download_widget = WorkChainOutputs(node=process)
             output_download_widget.layout.width = "100%"
             self.output_download_container.children = [
                 self.output_download_help,
