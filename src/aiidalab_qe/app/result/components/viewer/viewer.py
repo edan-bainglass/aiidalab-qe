@@ -7,6 +7,7 @@ from aiidalab_qe.common.infobox import InAppGuide
 from aiidalab_qe.common.panel import ResultsPanel
 from aiidalab_qe.plugins.utils import get_entry_items
 
+from .general import GeneralResultsModel, GeneralResultsPanel
 from .model import WorkChainResultsViewerModel
 from .structure import StructureResultsModel, StructureResultsPanel
 
@@ -19,7 +20,8 @@ class WorkChainResultsViewer(ResultsComponent[WorkChainResultsViewerModel]):
         # the logic of the process change event handler.
         # TODO avoid exceptions! Ensure sub-model synchronization in general!
         self.panels: dict[str, ResultsPanel] = {}
-        self._add_structure_panel(model)
+        self._add_general_results(model)
+        self._add_structure_results(model)
         self._fetch_plugin_results(model)
         super().__init__(model=model, **kwargs)
 
@@ -70,16 +72,19 @@ class WorkChainResultsViewer(ResultsComponent[WorkChainResultsViewerModel]):
         if children:
             self.tabs.selected_index = 0
 
-    def _add_structure_panel(self, viewer_model: WorkChainResultsViewerModel):
+    def _add_general_results(self, viewer_model: WorkChainResultsViewerModel):
+        general_model = GeneralResultsModel()
+        general_model.process_uuid = viewer_model.process_uuid
+        general_results = GeneralResultsPanel(model=general_model)
+        viewer_model.add_model(general_model.identifier, general_model)
+        self.panels |= {general_model.identifier: general_results}
+
+    def _add_structure_results(self, viewer_model: WorkChainResultsViewerModel):
         structure_model = StructureResultsModel()
         structure_model.process_uuid = viewer_model.process_uuid
-        self.structure_results = StructureResultsPanel(model=structure_model)
-        identifier = structure_model.identifier
-        viewer_model.add_model(identifier, structure_model)
-        self.panels = {
-            identifier: self.structure_results,
-            **self.panels,
-        }
+        structure_results = StructureResultsPanel(model=structure_model)
+        viewer_model.add_model(structure_model.identifier, structure_model)
+        self.panels |= {structure_model.identifier: structure_results}
 
     def _fetch_plugin_results(self, viewer_model: WorkChainResultsViewerModel):
         entries = get_entry_items("aiidalab_qe.properties", "result")
