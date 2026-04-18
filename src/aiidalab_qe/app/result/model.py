@@ -7,6 +7,7 @@ import traitlets as tl
 from aiida import orm
 from aiida.engine import ProcessState
 from aiida.engine.processes import control
+from aiida.orm.utils.remote import clean_mapping_remote_paths, get_calcjob_remote_paths
 from aiidalab_qe.common.mixins import HasModels, HasProcess
 from aiidalab_qe.common.process import STATE_ICONS
 from aiidalab_qe.common.wizard import DependentWizardStepModel, State
@@ -44,10 +45,15 @@ class ResultsStepModel(
     def clean_remote_data(self):
         if not self.has_process:
             return
-        for called_descendant in self.process.called_descendants:
-            if isinstance(called_descendant, orm.CalcJobNode):
-                with contextlib.suppress(Exception):
-                    called_descendant.outputs.remote_folder._clean()
+        calc_job_pks = [
+            called_descendant.pk
+            for called_descendant in filter(
+                lambda cd: isinstance(cd, orm.CalcJobNode),
+                self.process.called_descendants,
+            )
+        ]
+        mapping = get_calcjob_remote_paths(pks=calc_job_pks, only_not_cleaned=True)
+        clean_mapping_remote_paths(mapping, silent=True)
         self.process_remote_folder_is_clean = True
 
     def update_state(self):
