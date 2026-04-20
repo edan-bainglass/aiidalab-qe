@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 
-from aiidalab_qe.app.utils.plugin_manager import PluginManager
+from aiidalab_qe.utils.plugin_manager import PluginManager
 
 # mock the content of the YAML file
 yaml_content = """
