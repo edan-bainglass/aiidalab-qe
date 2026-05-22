@@ -91,18 +91,6 @@ class PluginOutline(ipw.HBox):
         )
 
 
-class ConfigurationSettingsModel(PanelModel):
-    """Base model for configuration settings models."""
-
-    def __init__(self, *args, **kwargs):
-        warnings.warn(
-            "`ConfigurationSettingsModel` is deprecated. Please extend `PanelModel` instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(*args, **kwargs)
-
-
 class ConfigurationSettingsPanel(Panel[PM]):
     """Base class for configuration settings panels."""
 
